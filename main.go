@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/rs/zerolog"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 )
 
 func main() {
+	logger := zerolog.New(os.Stdout).Level(zerolog.ErrorLevel)
 	// Creates a "node 0" directory to store node data, e.g., chain data, key.
 	dataDir := filepath.Join(".", "node0")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
