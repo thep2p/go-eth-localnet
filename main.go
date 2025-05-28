@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	logger := zerolog.New(os.Stdout).Level(zerolog.ErrorLevel)
+	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	// Creates a "node 0" directory to store node data, e.g., chain data, key.
 	dataDir := filepath.Join(".", "node0")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
