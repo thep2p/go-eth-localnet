@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"log"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,10 +12,11 @@ import (
 )
 
 func main() {
+	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	// Creates a "node 0" directory to store node data, e.g., chain data, key.
 	dataDir := filepath.Join(".", "node0")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Fatalf("failed to create datadir: %v", err)
+		logger.Fatal().Err(err).Msg("failed to create data directory")
 	}
 
 	stack, err := node.New(&node.Config{
@@ -23,7 +24,7 @@ func main() {
 		Name:    "geth-local-node",
 	})
 	if err != nil {
-		log.Fatalf("failed to create node: %v", err)
+		logger.Fatal().Err(err).Msg("failed to create node")
 	}
 
 	_, err = eth.New(stack, &ethconfig.Config{
@@ -34,14 +35,18 @@ func main() {
 		NetworkId: 1337,
 	})
 	if err != nil {
-		log.Fatalf("failed to create eth service: %v", err)
+		logger.Fatal().Err(err).Msg("failed to create eth service")
 	}
 
 	if err := stack.Start(); err != nil {
-		log.Fatalf("failed to start node: %v", err)
+		logger.Fatal().Err(err).Msg("failed to start node")
 	}
-	defer stack.Close()
+	defer func() {
+		if err := stack.Close(); err != nil {
+			logger.Error().Err(err).Msg("failed to close node")
+		}
+	}()
 
-	log.Println("✅ Geth node is running")
+	logger.Info().Msg("✅ Geth node is running")
 	time.Sleep(30 * time.Second)
 }
