@@ -46,3 +46,7 @@ func (h *Handle) NodeURL() string {
 func (h *Handle) DataDir() string {
 	return h.config.DataDir
 }
+
+func (h *Handle) ID() int {
+	return h.config.ID
+}

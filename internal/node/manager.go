@@ -1,31 +1,46 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 )
 
 type Manager struct {
-	launcher *Launcher
-	handles  []*Handle
+	logger zerolog.Logger
+	// baseDataDir specifies the root directory for storing node data and configuration files.
+	baseDataDir string
+	// baseP2PPort specifies the starting port number for peer-to-peer communication.
+	baseP2PPort int
+	// baseRPCPort specifies the starting port number for remote procedure calls.
+	baseRPCPort int
+	launcher    *Launcher
+	handles     []*Handle
 }
 
-func NewNodeManager(launcher *Launcher) *Manager {
-	return &Manager{launcher: launcher}
+func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, baseP2PPort int, baseRPCPort int) *Manager {
+	return &Manager{
+		logger:      logger.With().Str("component", "node-manager").Logger(),
+		launcher:    launcher,
+		baseDataDir: baseDataDir,
+		baseP2PPort: baseP2PPort,
+		baseRPCPort: baseRPCPort,
+	}
 }
 
-func (m *Manager) StartN(n int, baseDataDir string, baseP2PPort, baseRPCPort int) error {
+func (m *Manager) Start(ctx context.Context, n int) error {
 	enodes := make([]string, n)
 
 	// Step 1: Launch each node
 	for i := 0; i < n; i++ {
 		cfg := Config{
 			ID:      i,
-			DataDir: filepath.Join(baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort: baseP2PPort + i,
-			RPCPort: baseRPCPort + i,
+			DataDir: filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
+			P2PPort: m.baseP2PPort + i,
+			RPCPort: m.baseRPCPort + i,
 		}
 		handle, err := m.launcher.Launch(cfg)
 		if err != nil {
@@ -42,6 +57,20 @@ func (m *Manager) StartN(n int, baseDataDir string, baseP2PPort, baseRPCPort int
 			return fmt.Errorf("node %d static peers: %w", i, err)
 		}
 	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			m.logger.Info().Msg("Context cancelled, shutting down nodes")
+			for _, handle := range m.handles {
+				if err := handle.Close(); err != nil {
+					m.logger.Error().Int("id", handle.ID()).Err(err).Msg("Failed to close node")
+				} else {
+					m.logger.Info().Int("id", handle.ID()).Msg("Node closed successfully")
+				}
+			}
+		}
+	}()
 
 	return nil
 }
@@ -74,4 +103,9 @@ func writeStaticPeers(dataDir string, peers []string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dataDir, "geth", "static-nodes.json"), encoded, 0644)
+}
+
+// Handles returns a slice of all currently managed node handles.
+func (m *Manager) Handles() []*Handle {
+	return m.handles
 }
