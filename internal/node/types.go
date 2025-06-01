@@ -41,3 +41,8 @@ func (h *Handle) Close() error {
 func (h *Handle) NodeURL() string {
 	return h.nodeURL
 }
+
+// DataDir returns the directory where the Geth node's data is stored.
+func (h *Handle) DataDir() string {
+	return h.config.DataDir
+}
