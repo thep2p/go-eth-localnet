@@ -2,7 +2,11 @@ module github.com/thep2p/go-eth-localnet
 
 go 1.24.0
 
-require github.com/ethereum/go-ethereum v1.15.11
+require (
+	github.com/ethereum/go-ethereum v1.15.11
+	github.com/rs/zerolog v1.34.0
+	github.com/stretchr/testify v1.10.0
+)
 
 require (
 	github.com/DataDog/zstd v1.5.2 // indirect
@@ -59,6 +63,7 @@ require (
 	github.com/pion/transport/v2 v2.2.1 // indirect
 	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
@@ -66,7 +71,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/cors v1.7.0 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/supranational/blst v0.3.14 // indirect
@@ -83,5 +87,6 @@ require (
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )

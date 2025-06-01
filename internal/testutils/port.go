@@ -15,8 +15,8 @@ func randomPort() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// RandomPortT is like RandomPort but panics via `t.Fatalf` instead of `panic`.
-func RandomPortT(t *testing.T) int {
+// RandomPort is like RandomPort but panics via `t.Fatalf` instead of `panic`.
+func RandomPort(t *testing.T) int {
 	t.Helper()
 	return randomPort()
 }

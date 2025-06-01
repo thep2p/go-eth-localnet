@@ -50,8 +50,8 @@ func (l *Launcher) Launch(cfg Config) (*Handle, error) {
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Msgf("Node %d started", cfg.ID)
 
 	return &Handle{
-		Instance: stack,
-		EnodeURL: stack.Server().NodeInfo().Enode,
-		Config:   cfg,
+		instance: stack,
+		nodeURL:  stack.Server().NodeInfo().Enode,
+		config:   cfg,
 	}, nil
 }

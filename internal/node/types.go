@@ -16,10 +16,28 @@ type Config struct {
 
 // Handle represents a running Geth node instance.
 type Handle struct {
-	// Instance is a reference to the active Geth node instance.
-	Instance *node.Node
-	// EnodeURL is the enode URL of the Geth node, used for peer discovery.
-	EnodeURL string
-	// Config holds the configuration details for the Geth node.
-	Config Config
+	// instance is a reference to the active Geth node instance.
+	instance *node.Node
+	// nodeURL is the enode URL of the Geth node, used for peer discovery.
+	nodeURL string
+	// config holds the configuration details for the Geth node.
+	config Config
+}
+
+func NewHandle(instance *node.Node, enodeURL string, config Config) *Handle {
+	return &Handle{
+		instance: instance,
+		nodeURL:  enodeURL,
+		config:   config,
+	}
+}
+
+// Close stops the Geth node instance and releases resources.
+func (h *Handle) Close() error {
+	return h.instance.Close()
+}
+
+// NodeURL returns the enode URL of the Geth node, which is used for peer discovery.
+func (h *Handle) NodeURL() string {
+	return h.nodeURL
 }
