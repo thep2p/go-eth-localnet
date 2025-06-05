@@ -1,3 +1,8 @@
+// Package node provides functionality for managing Ethereum nodes in a local network environment.
+// It includes tools for launching, configuring, and orchestrating multiple Geth nodes,
+// handling their lifecycle, managing peer connections, and coordinating node communication.
+// The package supports creating full-mesh network topologies and manages node-specific
+// configurations such as data directories, P2P ports, and RPC endpoints.
 package node
 
 import (
@@ -10,14 +15,17 @@ import (
 	"os"
 )
 
+// Launcher provides methods to initialize and manage Geth node instances. It uses a logger for operational logging.
 type Launcher struct {
 	logger zerolog.Logger
 }
 
+// NewLauncher constructs and returns a new Launcher instance with the provided logger.
 func NewLauncher(logger zerolog.Logger) *Launcher {
 	return &Launcher{logger: logger.With().Str("component", "node-launcher").Logger()}
 }
 
+// Launch initializes and starts a new Geth node based on the given configuration.
 func (l *Launcher) Launch(cfg Config) (*Handle, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("mkdir: %w", err)

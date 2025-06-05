@@ -1,22 +1,25 @@
 package testutils
 
 import (
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 )
 
 // RandomPort finds an available TCP port on localhost.
-func randomPort() int {
+func randomPort(t *testing.T) int {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic("failed to find open port: " + err.Error())
 	}
-	defer l.Close()
+	defer func() {
+		require.NoError(t, l.Close(), "failed to close listener after finding random port")
+	}()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
 // RandomPort is like RandomPort but panics via `t.Fatalf` instead of `panic`.
 func RandomPort(t *testing.T) int {
 	t.Helper()
-	return randomPort()
+	return randomPort(t)
 }

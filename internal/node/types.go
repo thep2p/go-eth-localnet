@@ -24,6 +24,7 @@ type Handle struct {
 	config Config
 }
 
+// NewHandle initializes and returns a new Handle for a Geth node instance with the provided configuration.
 func NewHandle(instance *node.Node, enodeURL string, config Config) *Handle {
 	return &Handle{
 		instance: instance,
@@ -47,6 +48,7 @@ func (h *Handle) DataDir() string {
 	return h.config.DataDir
 }
 
+// ID returns the identifier of the Geth node instance.
 func (h *Handle) ID() int {
 	return h.config.ID
 }

@@ -59,17 +59,16 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 	}
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			m.logger.Info().Msg("Context cancelled, shutting down nodes")
-			for _, handle := range m.handles {
-				if err := handle.Close(); err != nil {
-					m.logger.Error().Int("id", handle.ID()).Err(err).Msg("Failed to close node")
-				} else {
-					m.logger.Info().Int("id", handle.ID()).Msg("Node closed successfully")
-				}
+		<-ctx.Done()
+		m.logger.Info().Msg("Context cancelled, shutting down nodes")
+		for _, handle := range m.handles {
+			if err := handle.Close(); err != nil {
+				m.logger.Error().Int("id", handle.ID()).Err(err).Msg("Failed to close node")
+			} else {
+				m.logger.Info().Int("id", handle.ID()).Msg("Node closed successfully")
 			}
 		}
+
 	}()
 
 	return nil
