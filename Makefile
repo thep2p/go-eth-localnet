@@ -1,5 +1,5 @@
 # Desired Go version
-GO_DESIRED_VERSION := 1.21.6
+GO_DESIRED_VERSION := 1.24.0
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
@@ -42,11 +42,10 @@ install-tools: check-go-version
 
 # Linting target with a dependency on Go version check
 .PHONY: lint
-lint: check-go-version
+lint: check-go-version tidy
 	@golangci-lint run --config ./integration/golangci-lint.yml
 
-# Placeholder target (add as needed)
-.PHONY: build
-build: check-go-version
-	@echo "Building the project..."
-	@# Add build commands here
+.PHONY: tidy
+tidy: check-go-version
+	@echo "Running go mod tidy..."
+	@go mod tidy
