@@ -1,3 +1,4 @@
+// Description: A simple Geth node setup for local development.
 package main
 
 import (
