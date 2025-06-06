@@ -1,5 +1,5 @@
 # Desired Go version
-GO_DESIRED_VERSION := 1.24.0
+GO_DESIRED_VERSION := 1.23.10
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
