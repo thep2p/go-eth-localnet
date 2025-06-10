@@ -1,6 +1,6 @@
 module github.com/thep2p/go-eth-localnet
 
-go 1.23.5
+go 1.23.10
 
 require (
 	github.com/ethereum/go-ethereum v1.15.11
