@@ -1,12 +1,12 @@
-# Desired Go version
-GO_DESIRED_VERSION := 1.21.6
+# Minimum Go version
+GO_MIN_VERSION := 1.23.10
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
 GO_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/arm64/arm64/')
 
 # Download URL for the Go package
-GO_DOWNLOAD_URL := https://golang.org/dl/go$(GO_DESIRED_VERSION).$(GO_OS)-$(GO_ARCH).tar.gz
+GO_DOWNLOAD_URL := https://golang.org/dl/go$(GO_MIN_VERSION).$(GO_OS)-$(GO_ARCH).tar.gz
 
 # Go installation directory and binary path
 GO_INSTALL_DIR := /usr/local/go
@@ -16,12 +16,13 @@ GO_BIN := $(shell which go)
 .PHONY: check-go-version
 check-go-version:
 	@if [ -x "$(GO_BIN)" ]; then \
-		VERSION=$$($(GO_BIN) version | grep -o 'go[0-9]\+\(\.[0-9]\+\)*' | sed 's/go//'); \
-		if [ "$$VERSION" != "$(GO_DESIRED_VERSION)" ]; then \
-			echo "⚠️  Current Go version ($$VERSION) does not match desired version ($(GO_DESIRED_VERSION))."; \
+		CURRENT=$$($(GO_BIN) version | grep -o 'go[0-9]\+\(\.[0-9]\+\)*' | sed 's/go//'); \
+		DESIRED="$(GO_MIN_VERSION)"; \
+		if [ "$$(printf '%s\n' "$$DESIRED" "$$CURRENT" | sort -V | head -n1)" != "$$DESIRED" ]; then \
+			echo "⚠️  Current Go version ($$CURRENT) does not meet the minimum required version ($$DESIRED)."; \
 			exit 1; \
 		else \
-			echo "✅ Go version $(GO_DESIRED_VERSION) is already installed."; \
+			echo "✅ Current Go version ($$CURRENT) meets or exceeds the required version ($$DESIRED)."; \
 		fi; \
 	else \
 		echo "❌ Go is not installed."; \
@@ -42,11 +43,11 @@ install-tools: check-go-version
 
 # Linting target with a dependency on Go version check
 .PHONY: lint
-lint: check-go-version
-	@golangci-lint run --config ./integration/golangci-lint.yml
+lint: check-go-version tidy
+	 @echo "Running golangci-lint..."
+	 @golangci-lint run --config ./integration/golangci-lint.yml ./...
 
-# Placeholder target (add as needed)
-.PHONY: build
-build: check-go-version
-	@echo "Building the project..."
-	@# Add build commands here
+.PHONY: tidy
+tidy: check-go-version
+	@echo "Running go mod tidy..."
+	@go mod tidy
