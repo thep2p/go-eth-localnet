@@ -1,6 +1,18 @@
-# Ethereum Go-native Localnet
+# Ethereum Go-native Local Network
 A fully Go-native tool to spin up and orchestrate a local Ethereum network composed of Geth and Prysm nodes — either in-process or inside Docker containers — without using Bash, Docker Compose, or non-Go tooling.
 
+## Prerequisites
+
+- **Go**: The project requires a minimum of **Go 1.23.10** or higher. You can download and install the required version
+  from [the official Go website](https://go.dev/dl/).
+
+Make sure you have the correct version installed by running:
+
+```bash
+go version
+```
+
+If your Go version is lower than **1.23.10**, please upgrade your Go installation.# Ethereum Go-native Localnet
 
 ## 🎯 Goals
 

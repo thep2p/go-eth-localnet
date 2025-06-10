@@ -16,12 +16,13 @@ GO_BIN := $(shell which go)
 .PHONY: check-go-version
 check-go-version:
 	@if [ -x "$(GO_BIN)" ]; then \
-		VERSION=$$($(GO_BIN) version | grep -o 'go[0-9]\+\(\.[0-9]\+\)*' | sed 's/go//'); \
-		if [ "$$VERSION" != "$(GO_DESIRED_VERSION)" ]; then \
-			echo "⚠️  Current Go version ($$VERSION) does not match desired version ($(GO_DESIRED_VERSION))."; \
+		CURRENT=$$($(GO_BIN) version | grep -o 'go[0-9]\+\(\.[0-9]\+\)*' | sed 's/go//'); \
+		DESIRED="$(GO_DESIRED_VERSION)"; \
+		if [ "$$(printf '%s\n' "$$DESIRED" "$$CURRENT" | sort -V | head -n1)" != "$$DESIRED" ]; then \
+			echo "⚠️  Current Go version ($$CURRENT) does not meet the minimum required version ($$DESIRED)."; \
 			exit 1; \
 		else \
-			echo "✅ Go version $(GO_DESIRED_VERSION) is already installed."; \
+			echo "✅ Current Go version ($$CURRENT) meets or exceeds the required version ($$DESIRED)."; \
 		fi; \
 	else \
 		echo "❌ Go is not installed."; \
@@ -43,7 +44,8 @@ install-tools: check-go-version
 # Linting target with a dependency on Go version check
 .PHONY: lint
 lint: check-go-version tidy
-	@golangci-lint run --config ./integration/golangci-lint.yml
+	 @echo "Running golangci-lint..."
+	 @golangci-lint run --config ./integration/golangci-lint.yml ./...
 
 .PHONY: tidy
 tidy: check-go-version
