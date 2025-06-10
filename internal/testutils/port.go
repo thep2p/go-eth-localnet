@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// RandomPort finds an available TCP port on localhost.
+// randomPort finds an available TCP port on localhost.
 func randomPort(t *testing.T) int {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
