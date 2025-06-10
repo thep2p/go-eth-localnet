@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/rs/zerolog"
+	"github.com/thep2p/go-eth-localnet/internal/model"
 	"os"
 )
 
@@ -26,7 +27,7 @@ func NewLauncher(logger zerolog.Logger) *Launcher {
 }
 
 // Launch initializes and starts a new Geth node based on the given configuration.
-func (l *Launcher) Launch(cfg Config) (*Handle, error) {
+func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("mkdir: %w", err)
 	}
@@ -57,9 +58,5 @@ func (l *Launcher) Launch(cfg Config) (*Handle, error) {
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Msgf("Node %d started", cfg.ID)
 
-	return &Handle{
-		instance: stack,
-		nodeURL:  stack.Server().NodeInfo().Enode,
-		config:   cfg,
-	}, nil
+	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
 }

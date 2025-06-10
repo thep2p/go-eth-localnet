@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog"
+	"github.com/thep2p/go-eth-localnet/internal/model"
 	"os"
 	"path/filepath"
 )
@@ -18,7 +19,7 @@ type Manager struct {
 	// baseRPCPort specifies the starting port number for remote procedure calls.
 	baseRPCPort int
 	launcher    *Launcher
-	handles     []*Handle
+	handles     []*model.Handle
 }
 
 func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, baseP2PPort int, baseRPCPort int) *Manager {
@@ -36,7 +37,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 
 	// Step 1: Launch each node
 	for i := 0; i < n; i++ {
-		cfg := Config{
+		cfg := model.Config{
 			ID:      i,
 			DataDir: filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
 			P2PPort: m.baseP2PPort + i,
@@ -115,6 +116,6 @@ func writeStaticPeers(dataDir string, peers []string) error {
 }
 
 // Handles returns a slice of all currently managed node handles.
-func (m *Manager) Handles() []*Handle {
+func (m *Manager) Handles() []*model.Handle {
 	return m.handles
 }

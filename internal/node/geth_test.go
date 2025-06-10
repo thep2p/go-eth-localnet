@@ -3,6 +3,7 @@ package node_test
 import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 	"os"
@@ -14,7 +15,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	port := testutils.RandomPort(t)
 
-	cfg := node.Config{
+	cfg := model.Config{
 		ID:      0,
 		DataDir: tmp.Path(),
 		P2PPort: port,

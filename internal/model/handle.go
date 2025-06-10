@@ -1,4 +1,4 @@
-package node
+package model
 
 import "github.com/ethereum/go-ethereum/node"
 
