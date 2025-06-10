@@ -4,7 +4,9 @@ import "github.com/ethereum/go-ethereum/node"
 
 // Config defines the configuration parameters for a Geth node instance.
 type Config struct {
-	// ID represents the node identifier.
+	// ID represents the node identifier for sake of tracking and labeling.
+	// It can be any arbitrary integer, typically starting from 0.
+	// Uniqueness of IDs is not enforced, but it is recommended to use unique IDs for each node instance.
 	ID int
 	// DataDir is the directory where the node's data will be stored.
 	DataDir string
