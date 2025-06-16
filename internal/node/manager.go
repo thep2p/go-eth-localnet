@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal/model"
+	"net"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type Manager struct {
@@ -19,7 +23,10 @@ type Manager struct {
 	// baseRPCPort specifies the starting port number for remote procedure calls.
 	baseRPCPort int
 	launcher    *Launcher
-	handles     []*model.Handle
+	// handlesMu is a mutex to protect concurrent access to the handles slice.
+	handlesMu sync.Mutex // Protects access to handles
+	// handles is a slice of node handles, each representing a running Geth node instance.
+	handles []*model.Handle
 }
 
 func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, baseP2PPort int, baseRPCPort int) *Manager {
@@ -34,42 +41,63 @@ func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir strin
 
 func (m *Manager) Start(ctx context.Context, n int) error {
 	enodes := make([]string, n)
+	configs := make([]model.Config, n)
 
-	// Step 1: Launch each node
+	// Step 1: Precompute keys configs, and enode URLs
 	for i := 0; i < n; i++ {
-		cfg := model.Config{
-			ID:      i,
-			DataDir: filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort: m.baseP2PPort + i,
-			RPCPort: m.baseRPCPort + i,
-		}
-		handle, err := m.launcher.Launch(cfg)
+		priv, err := crypto.GenerateKey()
 		if err != nil {
-			return fmt.Errorf("node %d launch: %w", i, err)
+			return fmt.Errorf("generate key for node %d: %w", i, err)
 		}
-		m.handles = append(m.handles, handle)
-		enodes[i] = handle.NodeURL()
+
+		port := m.baseP2PPort + i
+		rpcPort := m.baseRPCPort + i
+		enodeURL := enode.NewV4(&priv.PublicKey, net.IPv4(127, 0, 0, 1), port, 0).String()
+
+		cfg := model.Config{
+			ID:         enode.PubkeyToIDV4(&priv.PublicKey),
+			DataDir:    filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
+			P2PPort:    port,
+			RPCPort:    rpcPort,
+			PrivateKey: priv,
+			EnodeURL:   enodeURL,
+		}
+		configs[i] = cfg
+		enodes[i] = enodeURL
 	}
 
-	// Step 2: Write static-nodes.json for each node (full mesh)
-	for i, h := range m.handles {
+	// Step 2: Write static-nodes.json
+	for i, cfg := range configs {
 		peers := append(enodes[:i], enodes[i+1:]...)
-		if err := writeStaticPeers(h.DataDir(), peers); err != nil {
+		if err := writeStaticPeers(cfg.DataDir, peers); err != nil {
 			return fmt.Errorf("node %d static peers: %w", i, err)
 		}
 	}
 
+	// Step 3: Launch nodes with assigned private keys and enode URLs
+	for i, cfg := range configs {
+		handle, err := m.launcher.Launch(cfg)
+		if err != nil {
+			return fmt.Errorf("node %d launch: %w", i, err)
+		}
+		m.handlesMu.Lock()
+		m.handles = append(m.handles, handle)
+		m.handlesMu.Unlock()
+
+		enodes[i] = handle.NodeURL() // Update real enode
+	}
+
+	// Step 5: Wait for shutdown
 	go func() {
 		<-ctx.Done()
 		m.logger.Info().Msg("Context cancelled, shutting down nodes")
 		for _, handle := range m.handles {
 			if err := handle.Close(); err != nil {
-				m.logger.Error().Int("id", handle.ID()).Err(err).Msg("Failed to close node")
+				m.logger.Error().Str("id", handle.ID().String()).Err(err).Msg("Failed to close node")
 			} else {
-				m.logger.Info().Int("id", handle.ID()).Msg("Node closed successfully")
+				m.logger.Info().Str("id", handle.ID().String()).Msg("Node closed successfully")
 			}
 		}
-
 	}()
 
 	return nil
@@ -117,5 +145,8 @@ func writeStaticPeers(dataDir string, peers []string) error {
 
 // Handles returns a slice of all currently managed node handles.
 func (m *Manager) Handles() []*model.Handle {
-	return m.handles
+	m.handlesMu.Lock()
+	defer m.handlesMu.Unlock()
+
+	return append([]*model.Handle{}, m.handles...)
 }

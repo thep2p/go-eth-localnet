@@ -1,11 +1,13 @@
 package node_test
 
 import (
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"net"
 	"os"
 	"testing"
 )
@@ -15,11 +17,15 @@ func TestSingleNodeLaunch(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	port := testutils.RandomPort(t)
 
+	// TODO: use a config fixture if this pattern is repeated
+	privateKey := testutils.PrivateKeyFixture(t)
 	cfg := model.Config{
-		ID:      0,
-		DataDir: tmp.Path(),
-		P2PPort: port,
-		RPCPort: port + 1000,
+		ID:         enode.PubkeyToIDV4(&privateKey.PublicKey),
+		DataDir:    tmp.Path(),
+		P2PPort:    port,
+		RPCPort:    port + 1000,
+		PrivateKey: privateKey,
+		EnodeURL:   enode.NewV4(&privateKey.PublicKey, net.IPv4(127, 0, 0, 1), port, 0).String(),
 	}
 
 	launcher := node.NewLauncher(logger)

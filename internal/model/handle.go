@@ -1,19 +1,27 @@
 package model
 
-import "github.com/ethereum/go-ethereum/node"
+import (
+	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+)
 
 // Config defines the configuration parameters for a Geth node instance.
 type Config struct {
 	// ID represents the node identifier for sake of tracking and labeling.
 	// It can be any arbitrary integer, typically starting from 0.
 	// Uniqueness of IDs is not enforced, but it is recommended to use unique IDs for each node instance.
-	ID int
+	ID enode.ID
 	// DataDir is the directory where the node's data will be stored.
 	DataDir string
 	// P2PPort is the port used for peer-to-peer communication.
 	P2PPort int
 	// RPCPort defines the port for remote procedure calls.
 	RPCPort int
+	// PrivateKey is the private key used for signing transactions and messages.
+	PrivateKey *ecdsa.PrivateKey
+	// EnodeURL is the enode URL of the node, which is used for peer discovery and connection.
+	EnodeURL string
 }
 
 // Handle represents a running Geth node instance.
@@ -51,7 +59,7 @@ func (h *Handle) DataDir() string {
 }
 
 // ID returns the identifier of the Geth node instance.
-func (h *Handle) ID() int {
+func (h *Handle) ID() enode.ID {
 	return h.config.ID
 }
 
