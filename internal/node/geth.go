@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"os"
@@ -26,42 +27,58 @@ func NewLauncher(logger zerolog.Logger) *Launcher {
 	return &Launcher{logger: logger.With().Str("component", "node-launcher").Logger()}
 }
 
-// Launch initializes and starts a new Geth node based on the given configuration.
+// Launch starts a Geth node, injecting StaticNodes from the config into p2p.Config.
 func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
+	// Ensure data directory exists
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
-		return nil, fmt.Errorf("mkdir: %w", err)
+		return nil, fmt.Errorf("mkdir datadir: %w", err)
 	}
 
-	stack, err := node.New(&node.Config{
-		DataDir: cfg.DataDir,
-		Name:    fmt.Sprintf("node-%d", cfg.ID),
-		P2P: p2p.Config{
-			ListenAddr:  fmt.Sprintf(":%d", cfg.P2PPort),
-			PrivateKey:  cfg.PrivateKey,
-			NoDiscovery: true,
-		},
+	// Build P2P configuration with static peers
+	p2pCfg := p2p.Config{
+		ListenAddr:  fmt.Sprintf(":%d", cfg.P2PPort),
+		PrivateKey:  cfg.PrivateKey,
+		NoDiscovery: true,
+		StaticNodes: make([]*enode.Node, 0, len(cfg.StaticNodes)),
+	}
+	for _, url := range cfg.StaticNodes {
+		n, err := enode.Parse(enode.ValidSchemes, url)
+		if err != nil {
+			return nil, fmt.Errorf("invalid static node %q: %w", url, err)
+		}
+		p2pCfg.StaticNodes = append(p2pCfg.StaticNodes, n)
+	}
+
+	// Prepare node configuration
+	nodeCfg := &node.Config{
+		DataDir:           cfg.DataDir,
+		Name:              fmt.Sprintf("node-%s", cfg.ID.String()),
+		P2P:               p2pCfg,
 		HTTPHost:          "127.0.0.1",
 		HTTPPort:          cfg.RPCPort,
 		HTTPModules:       []string{"eth", "net", "web3", "admin"},
 		UseLightweightKDF: true,
-	})
+	}
+
+	// Create Ethereum node stack
+	stack, err := node.New(nodeCfg)
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
 
-	_, err = eth.New(stack, &ethconfig.Config{NetworkId: 1337})
-	if err != nil {
-		return nil, fmt.Errorf("new eth: %w", err)
+	// Attach ETH service
+	if _, err := eth.New(stack, &ethconfig.Config{NetworkId: 1337}); err != nil {
+		return nil, fmt.Errorf("new eth service: %w", err)
 	}
 
+	// Start the node
 	if err := stack.Start(); err != nil {
-		return nil, fmt.Errorf("start: %w", err)
+		return nil, fmt.Errorf("start node: %w", err)
 	}
 
-	l.logger.Info().
-		Str("enode", stack.Server().NodeInfo().Enode).
-		Str("id", cfg.ID.String()).
-		Msg("Node started")
+	// Log the enode URL
+	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
 
+	// Return a handle for further management
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
 }

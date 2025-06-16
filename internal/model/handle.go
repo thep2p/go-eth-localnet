@@ -21,6 +21,8 @@ type Config struct {
 	RPCPort int
 	// PrivateKey is the private key used for signing transactions and messages.
 	PrivateKey *ecdsa.PrivateKey
+
+	StaticNodes []string // enode URLs of peers
 }
 
 // Handle represents a running Geth node instance.
