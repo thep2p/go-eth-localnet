@@ -7,7 +7,6 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
-	"net"
 	"os"
 	"testing"
 )
@@ -26,7 +25,6 @@ func TestSingleNodeLaunch(t *testing.T) {
 		P2PPort:    p2pPort,
 		RPCPort:    portAssigner.NewPort(),
 		PrivateKey: privateKey,
-		EnodeURL:   enode.NewV4(&privateKey.PublicKey, net.IPv4(127, 0, 0, 1), p2pPort, 0).String(),
 	}
 
 	launcher := node.NewLauncher(logger)

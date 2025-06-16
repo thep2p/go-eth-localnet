@@ -3,6 +3,7 @@ package model
 import (
 	"crypto/ecdsa"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
@@ -20,8 +21,6 @@ type Config struct {
 	RPCPort int
 	// PrivateKey is the private key used for signing transactions and messages.
 	PrivateKey *ecdsa.PrivateKey
-	// EnodeURL is the enode URL of the node, which is used for peer discovery and connection.
-	EnodeURL string
 }
 
 // Handle represents a running Geth node instance.
@@ -67,4 +66,8 @@ func (h *Handle) ID() enode.ID {
 // This port is used for interacting with the node via JSON-RPC or other RPC protocols.
 func (h *Handle) RpcPort() int {
 	return h.config.RPCPort
+}
+
+func (h *Handle) Server() *p2p.Server {
+	return h.instance.Server()
 }

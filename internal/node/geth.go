@@ -36,8 +36,9 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		DataDir: cfg.DataDir,
 		Name:    fmt.Sprintf("node-%d", cfg.ID),
 		P2P: p2p.Config{
-			ListenAddr: fmt.Sprintf(":%d", cfg.P2PPort),
-			PrivateKey: cfg.PrivateKey,
+			ListenAddr:  fmt.Sprintf(":%d", cfg.P2PPort),
+			PrivateKey:  cfg.PrivateKey,
+			NoDiscovery: true,
 		},
 		HTTPHost:          "127.0.0.1",
 		HTTPPort:          cfg.RPCPort,
@@ -57,12 +58,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("start: %w", err)
 	}
 
-	// enode comparison
-	compare := stack.Server().NodeInfo().Enode == cfg.EnodeURL
-
 	l.logger.Info().
-		Bool("compare", compare).
-		Str("url", cfg.EnodeURL).
 		Str("enode", stack.Server().NodeInfo().Enode).
 		Str("id", cfg.ID.String()).
 		Msg("Node started")
