@@ -87,7 +87,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		enodes[i] = handle.NodeURL() // Update real enode
 	}
 
-	// Step 5: Wait for shutdown
+	// Step 4: Wait for shutdown
 	go func() {
 		<-ctx.Done()
 		m.logger.Info().Msg("Context cancelled, shutting down nodes")
