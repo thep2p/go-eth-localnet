@@ -54,3 +54,9 @@ func (h *Handle) DataDir() string {
 func (h *Handle) ID() int {
 	return h.config.ID
 }
+
+// RpcPort returns the port configured for remote procedure calls (RPC) for the Geth node instance.
+// This port is used for interacting with the node via JSON-RPC or other RPC protocols.
+func (h *Handle) RpcPort() int {
+	return h.config.RPCPort
+}
