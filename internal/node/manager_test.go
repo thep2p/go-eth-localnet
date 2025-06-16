@@ -60,7 +60,7 @@ func TestStaticNodesAreNotIgnored(t *testing.T) {
 
 	// Confirm static-nodes.json exists and is non-empty
 	for _, h := range manager.Handles() {
-		staticPath := filepath.Join(h.DataDir(), "geth", "static-nodes.json")
+		staticPath := filepath.Join(h.DataDir(), "static-nodes.json")
 		data, err := os.ReadFile(staticPath)
 		require.NoError(t, err)
 		require.Contains(t, string(data), "enode://")

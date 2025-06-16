@@ -126,8 +126,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 // and reliable connections between nodes.
 // Returns an error if the file cannot be written or if the peers cannot be encoded into JSON.
 func writeStaticPeers(dataDir string, peers []string) error {
-	gethDir := filepath.Join(dataDir, "geth")
-	if err := os.MkdirAll(gethDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return fmt.Errorf("mkdir geth dir: %w", err)
 	}
 
@@ -136,7 +135,7 @@ func writeStaticPeers(dataDir string, peers []string) error {
 		return fmt.Errorf("marshal peers: %w", err)
 	}
 
-	staticPath := filepath.Join(gethDir, "static-nodes.json")
+	staticPath := filepath.Join(dataDir, "static-nodes.json")
 	if err := os.WriteFile(staticPath, encoded, 0644); err != nil {
 		return fmt.Errorf("write static-nodes.json: %w", err)
 	}
