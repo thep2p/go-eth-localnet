@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type Manager struct {
@@ -65,22 +67,35 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		enodes[i] = handle.NodeURL()
 	}
 
-	// Step 3: parse and dial peers on each node
+	// for each node, wait until its RPC is up, then dial the others
 	for i, h := range m.handles {
-		srv := h.Server()
-		lg := m.logger.With().Str("node", h.ID().String()).Logger()
+		rpcURL := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
+
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("rpc %q never came up", rpcURL)
+			}
+			client, err := rpc.DialContext(ctx, rpcURL)
+			if err == nil {
+				client.Close()
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		// dial peers
+		client, _ := rpc.DialContext(ctx, rpcURL)
 		for j, peerURL := range enodes {
 			if i == j {
-				continue // Skip self
+				continue
 			}
-			peer, err := enode.Parse(enode.ValidSchemes, peerURL)
-			if err != nil {
-				return fmt.Errorf("parse peer %d for node %d: %w", j, i, err)
+			var added bool
+			if err := client.CallContext(ctx, &added, "admin_addPeer", peerURL); err != nil {
+				return fmt.Errorf("admin_addPeer %s -> %s: %w", rpcURL, peerURL, err)
 			}
-			srv.AddPeer(peer)
-			lg = lg.With().Str("added_peer", peer.ID().String()).Logger()
 		}
-		lg.Debug().Msg("Added peers to node")
+		client.Close()
 	}
 
 	// Step 4: Wait for shutdown

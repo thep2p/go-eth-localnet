@@ -42,7 +42,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		},
 		HTTPHost:          "127.0.0.1",
 		HTTPPort:          cfg.RPCPort,
-		HTTPModules:       []string{"eth", "net", "web3"},
+		HTTPModules:       []string{"eth", "net", "web3", "admin"},
 		UseLightweightKDF: true,
 	})
 	if err != nil {
