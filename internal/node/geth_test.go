@@ -15,17 +15,18 @@ import (
 func TestSingleNodeLaunch(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	tmp := testutils.NewTempDir(t)
-	port := testutils.RandomPort(t)
+	portAssigner := testutils.NewPortAssigner(t)
+	p2pPort := portAssigner.NewPort()
 
 	// TODO: use a config fixture if this pattern is repeated
 	privateKey := testutils.PrivateKeyFixture(t)
 	cfg := model.Config{
 		ID:         enode.PubkeyToIDV4(&privateKey.PublicKey),
 		DataDir:    tmp.Path(),
-		P2PPort:    port,
-		RPCPort:    port + 1000,
+		P2PPort:    p2pPort,
+		RPCPort:    portAssigner.NewPort(),
 		PrivateKey: privateKey,
-		EnodeURL:   enode.NewV4(&privateKey.PublicKey, net.IPv4(127, 0, 0, 1), port, 0).String(),
+		EnodeURL:   enode.NewV4(&privateKey.PublicKey, net.IPv4(127, 0, 0, 1), p2pPort, 0).String(),
 	}
 
 	launcher := node.NewLauncher(logger)

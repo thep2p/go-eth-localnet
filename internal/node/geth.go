@@ -57,7 +57,15 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("start: %w", err)
 	}
 
-	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Msgf("Node %d started", cfg.ID)
+	// enode comparison
+	compare := stack.Server().NodeInfo().Enode == cfg.EnodeURL
+
+	l.logger.Info().
+		Bool("compare", compare).
+		Str("url", cfg.EnodeURL).
+		Str("enode", stack.Server().NodeInfo().Enode).
+		Str("id", cfg.ID.String()).
+		Msg("Node started")
 
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
 }

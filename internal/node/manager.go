@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/rs/zerolog"
+	"github.com/thep2p/go-eth-localnet/internal"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"net"
 	"os"
@@ -18,24 +19,21 @@ type Manager struct {
 	logger zerolog.Logger
 	// baseDataDir specifies the root directory for storing node data and configuration files.
 	baseDataDir string
-	// baseP2PPort specifies the starting port number for peer-to-peer communication.
-	baseP2PPort int
-	// baseRPCPort specifies the starting port number for remote procedure calls.
-	baseRPCPort int
 	launcher    *Launcher
+	// portAssigner is a function that returns an available P2P port for each node.
+	portAssigner internal.PortAssigner
 	// handlesMu is a mutex to protect concurrent access to the handles slice.
 	handlesMu sync.Mutex // Protects access to handles
 	// handles is a slice of node handles, each representing a running Geth node instance.
 	handles []*model.Handle
 }
 
-func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, baseP2PPort int, baseRPCPort int) *Manager {
+func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner internal.PortAssigner) *Manager {
 	return &Manager{
-		logger:      logger.With().Str("component", "node-manager").Logger(),
-		launcher:    launcher,
-		baseDataDir: baseDataDir,
-		baseP2PPort: baseP2PPort,
-		baseRPCPort: baseRPCPort,
+		logger:       logger.With().Str("component", "node-manager").Logger(),
+		launcher:     launcher,
+		baseDataDir:  baseDataDir,
+		portAssigner: portAssigner,
 	}
 }
 
@@ -50,14 +48,14 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			return fmt.Errorf("generate key for node %d: %w", i, err)
 		}
 
-		port := m.baseP2PPort + i
-		rpcPort := m.baseRPCPort + i
-		enodeURL := enode.NewV4(&priv.PublicKey, net.IPv4(127, 0, 0, 1), port, 0).String()
+		p2pPort := m.portAssigner.NewPort()
+		rpcPort := m.portAssigner.NewPort()
+		enodeURL := enode.NewV4(&priv.PublicKey, net.IPv4(127, 0, 0, 1), p2pPort, 0).String()
 
 		cfg := model.Config{
 			ID:         enode.PubkeyToIDV4(&priv.PublicKey),
 			DataDir:    filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort:    port,
+			P2PPort:    p2pPort,
 			RPCPort:    rpcPort,
 			PrivateKey: priv,
 			EnodeURL:   enodeURL,
@@ -139,6 +137,14 @@ func writeStaticPeers(dataDir string, peers []string) error {
 	if err := os.WriteFile(staticPath, encoded, 0644); err != nil {
 		return fmt.Errorf("write static-nodes.json: %w", err)
 	}
+
+	// read and print the file to verify
+	//data, err := os.ReadFile(staticPath)
+	//if err != nil {
+	//	return fmt.Errorf("read static-nodes.json: %w", err)
+	//}
+	//fmt.Printf("static-nodes.json: %s\n", data)
+
 	return nil
 }
 
