@@ -93,7 +93,7 @@ func TestStaticNodesAreNotIgnored(t *testing.T) {
 		err = client.Call(&peerCount, "net_peerCount")
 		require.NoError(t, err)
 
-		t.Logf("Node %x has %d peers", h.ID(), peerCount)
+		t.Logf("Node %s has %d peers", h.ID().String(), peerCount)
 		require.Greater(t, int(peerCount), 0, "Expected node to have peers from static-nodes.json")
 	}
 }
