@@ -37,6 +37,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		Name:    fmt.Sprintf("node-%d", cfg.ID),
 		P2P: p2p.Config{
 			ListenAddr: fmt.Sprintf(":%d", cfg.P2PPort),
+			PrivateKey: cfg.PrivateKey,
 		},
 		HTTPHost:          "127.0.0.1",
 		HTTPPort:          cfg.RPCPort,
