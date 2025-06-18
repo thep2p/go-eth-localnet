@@ -5,6 +5,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"sync"
 	"time"
@@ -40,8 +41,9 @@ func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir strin
 
 // Start launches n nodes, waits for them to accept RPC, then dials each into a full mesh.
 func (m *Manager) Start(ctx context.Context, n int) error {
-	// 1) Launch nodes and collect enode URLs
-	enodes := make([]string, 0, n)
+	// 1) Prepare configs and enode URLs for all nodes
+	configs := make([]model.Config, n)
+	enodes := make([]string, n)
 	for i := 0; i < n; i++ {
 		priv, err := crypto.GenerateKey()
 		if err != nil {
@@ -56,7 +58,24 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			PrivateKey: priv,
 		}
 
-		h, err := m.launcher.Launch(cfg)
+		url := enode.NewV4(&priv.PublicKey, net.IP{127, 0, 0, 1}, cfg.P2PPort, 0).URLv4()
+		configs[i] = cfg
+		enodes[i] = url
+	}
+
+	// 2) Populate static nodes for each config before launch
+	for i := range configs {
+		for j, url := range enodes {
+			if i == j {
+				continue
+			}
+			configs[i].StaticNodes = append(configs[i].StaticNodes, url)
+		}
+	}
+
+	// 3) Launch all nodes
+	for i := range configs {
+		h, err := m.launcher.Launch(configs[i])
 		if err != nil {
 			return fmt.Errorf("launch node %d: %w", i, err)
 		}
@@ -64,11 +83,9 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		m.mu.Lock()
 		m.handles = append(m.handles, h)
 		m.mu.Unlock()
-
-		enodes = append(enodes, h.NodeURL())
 	}
 
-	// 2) Wait for each node's RPC to be ready
+	// 4) Wait for each node's RPC to be ready
 	for _, h := range m.handles {
 		rpcURL := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
 		deadline := time.Now().Add(5 * time.Second)
@@ -85,7 +102,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		}
 	}
 
-	// 3) Dial each peer directly via the P2P server
+	// 5) Dial each peer directly via the P2P server
 	for i, h := range m.handles {
 		srv := h.Server()
 		for j, url := range enodes {
@@ -100,7 +117,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		}
 	}
 
-	// 4) Clean up on context cancel
+	// 6) Clean up on context cancel
 	go func() {
 		<-ctx.Done()
 		for _, h := range m.handles {

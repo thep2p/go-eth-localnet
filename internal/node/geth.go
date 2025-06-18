@@ -37,6 +37,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		PrivateKey:  cfg.PrivateKey,
 		NoDiscovery: true,
 		StaticNodes: make([]*enode.Node, 0, len(cfg.StaticNodes)),
+		MaxPeers:    len(cfg.StaticNodes) + 1,
 	}
 	for _, url := range cfg.StaticNodes {
 		node, err := enode.Parse(enode.ValidSchemes, url)
