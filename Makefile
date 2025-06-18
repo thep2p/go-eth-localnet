@@ -38,7 +38,7 @@ install-tools: check-go-version
 		echo "🔧 Installing golangci-lint..."; \
 		go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 	else \
-		VERSION=$$(golangci-lint --version | awk '{print $$NF}'); \
+		VERSION=$$(golangci-lint --version --format "{{.Version}}"); \
 		if [[ "$${VERSION}" != "$(LINT_VERSION)" ]]; then \
 			echo "🔄 Updating/Downgrading golangci-lint to $(LINT_VERSION)..."; \
 			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
