@@ -1,96 +1,119 @@
+// Package node provides functionality for managing Ethereum nodes in a local network environment.
+// It orchestrates a full-mesh by launching in-process Geth nodes and dialing each peer directly.
 package node
 
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal"
 	"github.com/thep2p/go-eth-localnet/internal/model"
-	"net"
-	"path/filepath"
-	"sync"
 )
 
+// Manager orchestrates a mesh of Geth nodes by dialing peers directly via the P2P server.
 type Manager struct {
-	logger zerolog.Logger
-	// baseDataDir specifies the root directory for storing node data and configuration files.
-	baseDataDir string
-	launcher    *Launcher
-	// portAssigner is a function that returns an available P2P port for each node.
+	logger       zerolog.Logger
+	baseDataDir  string
+	launcher     *Launcher
 	portAssigner internal.PortAssigner
-	// handlesMu is a mutex to protect concurrent access to the handles slice.
-	handlesMu sync.Mutex // Protects access to handles
-	// handles is a slice of node handles, each representing a running Geth node instance.
+
+	mu      sync.Mutex
 	handles []*model.Handle
 }
 
+// NewNodeManager constructs a Manager that will launch and wire up n nodes.
 func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner internal.PortAssigner) *Manager {
 	return &Manager{
 		logger:       logger.With().Str("component", "node-manager").Logger(),
-		launcher:     launcher,
 		baseDataDir:  baseDataDir,
+		launcher:     launcher,
 		portAssigner: portAssigner,
 	}
 }
 
+// Start launches n nodes, waits for them to accept RPC, then dials each into a full mesh.
 func (m *Manager) Start(ctx context.Context, n int) error {
-	// 1) Generate keys, ports, and “synthetic” enode URLs
-	enodes := make([]string, n)
-	cfgs := make([]model.Config, n)
+	// 1) Launch nodes and collect enode URLs
+	enodes := make([]string, 0, n)
 	for i := 0; i < n; i++ {
-		priv, _ := crypto.GenerateKey()
-		p2pPort := m.portAssigner.NewPort()
-		rpcPort := m.portAssigner.NewPort()
-		// include ?discport=0 to match what Geth reports
-		e := enode.NewV4(&priv.PublicKey, net.IPv4(127, 0, 0, 1), p2pPort, 0)
-		enodes[i] = e.URLv4()
+		priv, err := crypto.GenerateKey()
+		if err != nil {
+			return fmt.Errorf("generate key for node %d: %w", i, err)
+		}
 
-		cfgs[i] = model.Config{
+		cfg := model.Config{
 			ID:         enode.PubkeyToIDV4(&priv.PublicKey),
 			DataDir:    filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort:    p2pPort,
-			RPCPort:    rpcPort,
+			P2PPort:    m.portAssigner.NewPort(),
+			RPCPort:    m.portAssigner.NewPort(),
 			PrivateKey: priv,
 		}
-	}
 
-	// 2) Now launch each node *with* its static-peer list baked in
-	for i := range cfgs {
-		// peers = everyone except self
-		peers := append(enodes[:i], enodes[i+1:]...)
-		cfgs[i].StaticNodes = peers
-
-		handle, err := m.launcher.Launch(cfgs[i])
+		h, err := m.launcher.Launch(cfg)
 		if err != nil {
-			return err
+			return fmt.Errorf("launch node %d: %w", i, err)
 		}
-		m.handlesMu.Lock()
-		m.handles = append(m.handles, handle)
-		m.handlesMu.Unlock()
+
+		m.mu.Lock()
+		m.handles = append(m.handles, h)
+		m.mu.Unlock()
+
+		enodes = append(enodes, h.NodeURL())
 	}
 
-	// Step 4: Wait for shutdown
+	// 2) Wait for each node's RPC to be ready
+	for _, h := range m.handles {
+		rpcURL := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("rpc %q never came up", rpcURL)
+			}
+			client, err := rpc.DialContext(ctx, rpcURL)
+			if err == nil {
+				client.Close()
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	// 3) Dial each peer directly via the P2P server
+	for i, h := range m.handles {
+		srv := h.Server()
+		for j, url := range enodes {
+			if i == j {
+				continue
+			}
+			peer, err := enode.Parse(enode.ValidSchemes, url)
+			if err != nil {
+				return fmt.Errorf("parse peer %q: %w", url, err)
+			}
+			srv.AddPeer(peer)
+		}
+	}
+
+	// 4) Clean up on context cancel
 	go func() {
 		<-ctx.Done()
-		m.logger.Info().Msg("Context cancelled, shutting down nodes")
-		for _, handle := range m.handles {
-			if err := handle.Close(); err != nil {
-				m.logger.Error().Str("id", handle.ID().String()).Err(err).Msg("Failed to close node")
-			} else {
-				m.logger.Info().Str("id", handle.ID().String()).Msg("Node closed successfully")
-			}
+		for _, h := range m.handles {
+			h.Close()
 		}
 	}()
 
 	return nil
 }
 
-// Handles returns a slice of all currently managed node handles.
+// Handles returns a snapshot of the active node handles.
 func (m *Manager) Handles() []*model.Handle {
-	m.handlesMu.Lock()
-	defer m.handlesMu.Unlock()
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return append([]*model.Handle{}, m.handles...)
 }
