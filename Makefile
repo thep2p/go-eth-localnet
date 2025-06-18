@@ -42,10 +42,10 @@ install-tools: check-go-version
 	@echo "✅ All tools installed successfully."
 
 # Linting target with a dependency on Go version check
-.PHONY: lint
+.PHONY: lint-fix
 lint: check-go-version tidy
 	 @echo "Running golangci-lint..."
-	 @golangci-lint run --config ./integration/golangci-lint.yml ./...
+	 @golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
 
 .PHONY: tidy
 tidy: check-go-version
