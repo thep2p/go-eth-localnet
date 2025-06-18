@@ -35,9 +35,16 @@ install-tools: check-go-version
 	@echo "Installing other tools..."
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "🔧 Installing golangci-lint..."; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
 	else \
-		echo "✅ golangci-lint is already installed."; \
+		VERSION=$$(golangci-lint --version | awk '{print $$NF}'); \
+		if [[ "$${VERSION}" != "v1.64.5" ]]; then \
+			echo "🔄 Updating/Downgrading golangci-lint to v1.64.5..."; \
+			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
+			go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
+		else \
+			echo "✅ golangci-lint v1.64.5 is already installed."; \
+		fi; \
 	fi
 	@echo "✅ All tools installed successfully."
 
