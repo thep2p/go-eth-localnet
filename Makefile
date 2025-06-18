@@ -1,5 +1,6 @@
 # Minimum Go version
 GO_MIN_VERSION := 1.23.10
+LINT_VERSION := v1.64.5
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
@@ -47,6 +48,8 @@ install-tools: check-go-version
 		fi; \
 	fi
 	@echo "✅ All tools installed successfully."
+
+
 
 # Linting target with a dependency on Go version check
 .PHONY: lint-fix
