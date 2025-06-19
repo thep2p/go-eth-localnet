@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-func TestStartMultipleNodes(t *testing.T) {
-	t.Parallel()
+// TestStartMultipleNodes_Startup tests that starting multiple Geth nodes works correctly.
+func TestStartMultipleNodes_Startup(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
@@ -27,7 +27,7 @@ func TestStartMultipleNodes(t *testing.T) {
 	require.Len(t, manager.Handles(), 3)
 }
 
-// TestStaticNodesAreNotIgnored validates that Geth does not ignore static-nodes.json
+// TestMultipleGethNodes_StaticPeers validates that Geth does not ignore static-nodes.json
 // if the file is written before the node has already started. This regression test verifies that
 // writing static peer lists after stack.Start() is too late for Geth to load them.
 //
@@ -35,9 +35,7 @@ func TestStartMultipleNodes(t *testing.T) {
 // shuts down, and restarts the nodes. Even on restart, peer count remains zero, confirming the bug.
 //
 // Fixing this test requires static-nodes.json to be written before node launch.
-func TestStaticNodesAreNotIgnored(t *testing.T) {
-	t.Parallel()
-
+func TestMultipleGethNodes_StaticPeers(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 
 	launcher := node.NewLauncher(testutils.Logger(t))
@@ -55,14 +53,6 @@ func TestStaticNodesAreNotIgnored(t *testing.T) {
 		testutils.RequireRpcReadyWithinTimeout(t, ctx, h.RpcPort(), 5*time.Second)
 	}
 
-	//// Confirm static-nodes.json exists and is non-empty
-	//for _, h := range manager.Handles() {
-	//	staticPath := filepath.Join(h.DataDir(), "geth", "static-nodes.json")
-	//	data, err := os.ReadFile(staticPath)
-	//	require.NoError(t, err)
-	//	require.Contains(t, string(data), "enode://")
-	//}
-
 	defer func() {
 		// Shutdown the network
 		cancel()
@@ -73,40 +63,15 @@ func TestStaticNodesAreNotIgnored(t *testing.T) {
 
 	// Expect non-zero peer counts (but will fail because static-nodes.json was ignored before)
 	for _, h := range manager.Handles() {
-		//require.Eventually(t, func() bool {
-		//	endpoint := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
-		//	client, err := rpc.Dial(endpoint)
-		//	require.NoError(t, err)
-		//
-		//	var peerCount model.HexInt
-		//	err = client.Call(&peerCount, "net_peerCount")
-		//	require.NoError(t, err)
-		//
-		//	t.Logf("Node %s has %d peers", h.ID().String(), peerCount)
-		//	return int(peerCount) > 0
-		//}, 30*time.Second, 100*time.Millisecond, "Expected non-zero peer count after static-nodes.json was written")
 		require.Eventually(t, func() bool {
 			t.Logf("Node %s has %d peers", h.ID().String(), len(h.Server().Peers()))
 			return len(h.Server().Peers()) > 0
 		}, 10*time.Second, 250*time.Millisecond, "Expected non-zero peer count after static-nodes.json was written")
 	}
-
-	//// Relaunch using same datadirs
-	//ctx2, cancel2 := context.WithCancel(context.Background())
-	//defer cancel2()
-	//manager2 := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
-	//err = manager2.Start(ctx2, 3)
-	//require.NoError(t, err)
-	//
-	//for _, h := range manager2.Handles() {
-	//	testutils.RequireRpcReadyWithinTimeout(t, ctx2, h.RpcPort(), 5*time.Second)
-	//}
-
 }
 
-func TestManagerUniquePortsAndRPC(t *testing.T) {
-	t.Parallel()
-
+// TestMultipleGethNodes_UniquePorts ensures that each node in the manager has a unique RPC and P2P port.
+func TestMultipleGethNodes_UniquePorts(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
@@ -140,9 +105,10 @@ func TestManagerUniquePortsAndRPC(t *testing.T) {
 	require.Equal(t, 3, len(p2pPorts), "expected unique P2P ports")
 }
 
-func TestManagerPeersPersistWithStaticNodes(t *testing.T) {
-	t.Parallel()
-
+// TestMultipleGethNodes_StaticPeers_PostRestart tests that all nodes form a full mesh via static peers,
+// after a restart, ensuring that static nodes are correctly persisted and utilized.
+// Test ensures full mesh connectivity by checking that each node sees all others as peers.
+func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
@@ -154,6 +120,7 @@ func TestManagerPeersPersistWithStaticNodes(t *testing.T) {
 	handles := manager.Handles()
 	require.Len(t, handles, 3)
 
+	// Ensure all nodes are ready and can communicate
 	for _, h := range handles {
 		testutils.RequireRpcReadyWithinTimeout(t, ctx, h.RpcPort(), 5*time.Second)
 	}
@@ -169,39 +136,41 @@ func TestManagerPeersPersistWithStaticNodes(t *testing.T) {
 			if err := client.CallContext(ctx, &peers, "admin_peers"); err != nil {
 				return false
 			}
-			return len(peers) == len(handles)-1
+			return len(peers) == len(handles)-1 // Each node should see all others as peers
 		}, 10*time.Second, 250*time.Millisecond, "peer count mismatch")
 	}
 
+	// Shutdown the network, and then restart it to ensure peers persist
 	cancel()
 	for _, h := range handles {
 		testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
 	}
 
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
-	manager2 := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	manager = node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
 
-	require.NoError(t, manager2.Start(ctx2, 3))
-	handles2 := manager2.Handles()
+	require.NoError(t, manager.Start(ctx, 3))
+	handles2 := manager.Handles()
 	require.Len(t, handles2, 3)
 
+	// Ensure all nodes are ready and can communicate after restart
 	for _, h := range handles2 {
-		testutils.RequireRpcReadyWithinTimeout(t, ctx2, h.RpcPort(), 5*time.Second)
+		testutils.RequireRpcReadyWithinTimeout(t, ctx, h.RpcPort(), 5*time.Second)
 	}
 
 	for _, h := range handles2 {
 		require.Eventually(t, func() bool {
-			client, err := rpc.DialContext(ctx2, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
+			client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
 			if err != nil {
 				return false
 			}
 			defer client.Close()
 			var peers []any
-			if err := client.CallContext(ctx2, &peers, "admin_peers"); err != nil {
+			if err := client.CallContext(ctx, &peers, "admin_peers"); err != nil {
 				return false
 			}
-			return len(peers) == len(handles2)-1
+			return len(peers) == len(handles2)-1 // Each node should still see all others as peers after restart
 		}, 10*time.Second, 250*time.Millisecond, "peer count mismatch on restart")
 	}
 }
