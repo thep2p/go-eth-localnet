@@ -121,7 +121,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 	go func() {
 		<-ctx.Done()
 		for _, h := range m.handles {
-			h.Close()
+			_ = h.Close()
 		}
 	}()
 

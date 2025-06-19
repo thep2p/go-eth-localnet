@@ -3,13 +3,11 @@ package testutils
 import (
 	"github.com/stretchr/testify/require"
 	"net"
-	"sync"
 	"testing"
 )
 
 type PortAssigner struct {
 	t             *testing.T
-	mu            sync.Mutex
 	assignedPorts map[int]struct{}
 }
 

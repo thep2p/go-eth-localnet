@@ -40,11 +40,11 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		MaxPeers:    len(cfg.StaticNodes) + 1,
 	}
 	for _, url := range cfg.StaticNodes {
-		node, err := enode.Parse(enode.ValidSchemes, url)
+		n, err := enode.Parse(enode.ValidSchemes, url)
 		if err != nil {
 			return nil, fmt.Errorf("invalid static node %q: %w", url, err)
 		}
-		p2pCfg.StaticNodes = append(p2pCfg.StaticNodes, node)
+		p2pCfg.StaticNodes = append(p2pCfg.StaticNodes, n)
 	}
 
 	// node config
