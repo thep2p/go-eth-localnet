@@ -1,121 +1,136 @@
+// Package node provides functionality for managing Ethereum nodes in a local network environment.
+// It orchestrates a full-mesh by launching in-process Geth nodes and dialing each peer directly.
 package node
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/thep2p/go-eth-localnet/internal/model"
-	"os"
+	"net"
 	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/rs/zerolog"
+	"github.com/thep2p/go-eth-localnet/internal"
+	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
+// Manager orchestrates a mesh of Geth nodes by dialing peers directly via the P2P server.
 type Manager struct {
-	logger zerolog.Logger
-	// baseDataDir specifies the root directory for storing node data and configuration files.
-	baseDataDir string
-	// baseP2PPort specifies the starting port number for peer-to-peer communication.
-	baseP2PPort int
-	// baseRPCPort specifies the starting port number for remote procedure calls.
-	baseRPCPort int
-	launcher    *Launcher
-	handles     []*model.Handle
+	logger       zerolog.Logger
+	baseDataDir  string
+	launcher     *Launcher
+	portAssigner internal.PortAssigner
+
+	mu      sync.Mutex
+	handles []*model.Handle
 }
 
-func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, baseP2PPort int, baseRPCPort int) *Manager {
+// NewNodeManager constructs a Manager that will launch and wire up n nodes.
+func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner internal.PortAssigner) *Manager {
 	return &Manager{
-		logger:      logger.With().Str("component", "node-manager").Logger(),
-		launcher:    launcher,
-		baseDataDir: baseDataDir,
-		baseP2PPort: baseP2PPort,
-		baseRPCPort: baseRPCPort,
+		logger:       logger.With().Str("component", "node-manager").Logger(),
+		baseDataDir:  baseDataDir,
+		launcher:     launcher,
+		portAssigner: portAssigner,
 	}
 }
 
+// Start launches n nodes, waits for them to accept RPC, then dials each into a full mesh.
 func (m *Manager) Start(ctx context.Context, n int) error {
+	// 1) Prepare configs and enode URLs for all nodes
+	configs := make([]model.Config, n)
 	enodes := make([]string, n)
-
-	// Step 1: Launch each node
 	for i := 0; i < n; i++ {
-		cfg := model.Config{
-			ID:      i,
-			DataDir: filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort: m.baseP2PPort + i,
-			RPCPort: m.baseRPCPort + i,
-		}
-		handle, err := m.launcher.Launch(cfg)
+		priv, err := crypto.GenerateKey()
 		if err != nil {
-			return fmt.Errorf("node %d launch: %w", i, err)
+			return fmt.Errorf("generate key for node %d: %w", i, err)
 		}
-		m.handles = append(m.handles, handle)
-		enodes[i] = handle.NodeURL()
+
+		cfg := model.Config{
+			ID:         enode.PubkeyToIDV4(&priv.PublicKey),
+			DataDir:    filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
+			P2PPort:    m.portAssigner.NewPort(),
+			RPCPort:    m.portAssigner.NewPort(),
+			PrivateKey: priv,
+		}
+
+		url := enode.NewV4(&priv.PublicKey, net.IP{127, 0, 0, 1}, cfg.P2PPort, 0).URLv4()
+		configs[i] = cfg
+		enodes[i] = url
 	}
 
-	// Step 2: Write static-nodes.json for each node (full mesh)
+	// 2) Populate static nodes for each config before launch
+	for i := range configs {
+		for j, url := range enodes {
+			if i == j {
+				continue
+			}
+			configs[i].StaticNodes = append(configs[i].StaticNodes, url)
+		}
+	}
+
+	// 3) Launch all nodes
+	for i := range configs {
+		h, err := m.launcher.Launch(configs[i])
+		if err != nil {
+			return fmt.Errorf("launch node %d: %w", i, err)
+		}
+
+		m.mu.Lock()
+		m.handles = append(m.handles, h)
+		m.mu.Unlock()
+	}
+
+	// 4) Wait for each node's RPC to be ready
+	for _, h := range m.handles {
+		rpcURL := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("rpc %q never came up", rpcURL)
+			}
+			client, err := rpc.DialContext(ctx, rpcURL)
+			if err == nil {
+				client.Close()
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	// 5) Dial each peer directly via the P2P server
 	for i, h := range m.handles {
-		peers := append(enodes[:i], enodes[i+1:]...)
-		if err := writeStaticPeers(h.DataDir(), peers); err != nil {
-			return fmt.Errorf("node %d static peers: %w", i, err)
+		srv := h.Server()
+		for j, url := range enodes {
+			if i == j {
+				continue
+			}
+			peer, err := enode.Parse(enode.ValidSchemes, url)
+			if err != nil {
+				return fmt.Errorf("parse peer %q: %w", url, err)
+			}
+			srv.AddPeer(peer)
 		}
 	}
 
+	// 6) Clean up on context cancel
 	go func() {
 		<-ctx.Done()
-		m.logger.Info().Msg("Context cancelled, shutting down nodes")
-		for _, handle := range m.handles {
-			if err := handle.Close(); err != nil {
-				m.logger.Error().Int("id", handle.ID()).Err(err).Msg("Failed to close node")
-			} else {
-				m.logger.Info().Int("id", handle.ID()).Msg("Node closed successfully")
-			}
+		for _, h := range m.handles {
+			_ = h.Close()
 		}
-
 	}()
 
 	return nil
 }
 
-// writeStaticPeers writes the given list of peer URLs to a static-nodes.json file in the specified data directory.
-// Static nodes in Geth are specifically configured network nodes that this node will always try
-// to maintain connections with. They are configured through the static-nodes.json file.
-// These nodes are exempt from maximum peer limits, hence ensuring reliable network connectivity
-// with trusted nodes. This also helps with the intial peer discovery.
-//
-// The static-nodes.json file contains a list of enode URLs in JSON format.
-// When Geth node starts, it reads this file and attempts to establish connections with
-// the nodes listed in it. This is particularly useful for private networks or testnets.
-// These connections always persist regardless of the dynamic peer discovery process.
-// File format
-// ```json
-// [
-//
-//	"enode://nodeID1@ip1:port1",
-//	"enode://nodeID2@ip2:port2"
-//
-// ]
-// ```
-// Note this is particularly useful in this project as we need a private network with a full mesh topology,
-// and reliable connections between nodes.
-// Returns an error if the file cannot be written or if the peers cannot be encoded into JSON.
-func writeStaticPeers(dataDir string, peers []string) error {
-	gethDir := filepath.Join(dataDir, "geth")
-	if err := os.MkdirAll(gethDir, 0755); err != nil {
-		return fmt.Errorf("mkdir geth dir: %w", err)
-	}
-
-	encoded, err := json.MarshalIndent(peers, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal peers: %w", err)
-	}
-
-	staticPath := filepath.Join(gethDir, "static-nodes.json")
-	if err := os.WriteFile(staticPath, encoded, 0644); err != nil {
-		return fmt.Errorf("write static-nodes.json: %w", err)
-	}
-	return nil
-}
-
-// Handles returns a slice of all currently managed node handles.
+// Handles returns a snapshot of the active node handles.
 func (m *Manager) Handles() []*model.Handle {
-	return m.handles
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]*model.Handle{}, m.handles...)
 }
