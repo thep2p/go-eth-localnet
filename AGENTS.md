@@ -19,3 +19,8 @@
 - Title format for commit messages: `Short description (50 characters or less)`.
 - Use the imperative mood in commit messages (e.g., "Fix bug" instead of "Fixed bug").
 - Title format for pull requests: `Short description (50 characters or less)`.
+- Don't add a PR description. The maintainers will handle that.
+- Don't add any labels to the PR. The maintainers will handle that.
+- Add `godoc` comments for any new tests you write, explaining what the test does and why it's necessary.
+- Update `godoc` comments for any existing functions, test, types, or packages that you modify.
+- Update the `README.md` file with any new features or changes you make.
