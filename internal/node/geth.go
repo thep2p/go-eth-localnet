@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -16,7 +19,8 @@ import (
 
 // Launcher starts a Geth node, injecting StaticNodes from cfg.
 type Launcher struct {
-	logger zerolog.Logger
+	logger       zerolog.Logger
+	minerStarted bool
 }
 
 // NewLauncher returns a Launcher.
@@ -62,8 +66,28 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
-	if _, err := eth.New(stack, &ethconfig.Config{NetworkId: 1337}); err != nil {
+	ethCfg := &ethconfig.Config{NetworkId: 1337, Genesis: core.DeveloperGenesisBlock(11500000, nil)}
+	ethService, err := eth.New(stack, ethCfg)
+	if err != nil {
 		return nil, fmt.Errorf("attach eth: %w", err)
+	}
+
+	if cfg.Mine {
+		if l.minerStarted {
+			l.logger.Fatal().Msg("multiple miners are not supported")
+		}
+		l.minerStarted = true
+
+		simBeacon, err := catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
+		if err != nil {
+			return nil, fmt.Errorf("simulated beacon: %w", err)
+		}
+		catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
+		stack.RegisterLifecycle(simBeacon)
+	} else {
+		if err := catalyst.Register(stack, ethService); err != nil {
+			return nil, fmt.Errorf("register catalyst: %w", err)
+		}
 	}
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
