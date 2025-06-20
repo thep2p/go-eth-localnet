@@ -61,6 +61,7 @@ func TestMultipleGethNodes_StaticPeers(t *testing.T) {
 	defer func() {
 		// Shutdown the network
 		cancel()
+		manager.Wait()
 		for _, h := range manager.Handles() {
 			testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
 		}
@@ -147,6 +148,7 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 
 	// Shutdown the network, and then restart it to ensure peers persist
 	cancel()
+	manager.Wait()
 	for _, h := range handles {
 		testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
 	}
@@ -189,6 +191,7 @@ func TestSingleMinerChainSync(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	defer manager.Wait()
 
 	require.NoError(t, manager.Start(ctx, 3))
 	handles := manager.Handles()

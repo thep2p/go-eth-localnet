@@ -25,8 +25,9 @@ type Manager struct {
 	launcher     *Launcher
 	portAssigner internal.PortAssigner
 
-	mu      sync.Mutex
-	handles []*model.Handle
+	mu       sync.Mutex
+	handles  []*model.Handle
+	shutdown sync.WaitGroup
 }
 
 // NewNodeManager constructs a Manager that will launch and wire up n nodes.
@@ -88,6 +89,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		m.mu.Lock()
 		m.handles = append(m.handles, h)
 		m.mu.Unlock()
+		m.shutdown.Add(1)
 	}
 
 	// 4) Wait for each node's RPC to be ready
@@ -130,6 +132,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		for _, h := range m.handles {
 			m.logger.Info().Str("node", h.ID().String()).Msg("Shutting down")
 			_ = h.Close()
+			m.shutdown.Done()
 		}
 	}()
 
@@ -141,4 +144,9 @@ func (m *Manager) Handles() []*model.Handle {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]*model.Handle{}, m.handles...)
+}
+
+// Wait blocks until all nodes have shut down.
+func (m *Manager) Wait() {
+	m.shutdown.Wait()
 }
