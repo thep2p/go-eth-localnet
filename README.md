@@ -26,6 +26,7 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 ## 🚀 Features
 
 - Launch multiple Geth nodes on localhost
+- Single miner node runs in developer mode for rapid blocks
 - Programmatic control over ports, datadirs, peering
 - Pluggable support for Prysm and future CL clients
 - Clean CI, linting, and testability

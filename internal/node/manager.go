@@ -40,6 +40,9 @@ func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir strin
 }
 
 // Start launches n nodes, waits for them to accept RPC, then dials each into a full mesh.
+// Start launches n nodes, configures static peers, and waits until each node's
+// RPC endpoint becomes reachable. It returns an error if any node fails to
+// launch or expose its RPC within the timeout.
 func (m *Manager) Start(ctx context.Context, n int) error {
 	// 1) Prepare configs and enode URLs for all nodes
 	configs := make([]model.Config, n)
@@ -56,6 +59,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			P2PPort:    m.portAssigner.NewPort(),
 			RPCPort:    m.portAssigner.NewPort(),
 			PrivateKey: priv,
+			Mine:       i == 0,
 		}
 
 		url := enode.NewV4(&priv.PublicKey, net.IP{127, 0, 0, 1}, cfg.P2PPort, 0).URLv4()
@@ -75,6 +79,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 
 	// 3) Launch all nodes
 	for i := range configs {
+		m.logger.Info().Int("index", i).Msg("Launching node")
 		h, err := m.launcher.Launch(configs[i])
 		if err != nil {
 			return fmt.Errorf("launch node %d: %w", i, err)
@@ -96,6 +101,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			client, err := rpc.DialContext(ctx, rpcURL)
 			if err == nil {
 				client.Close()
+				m.logger.Info().Str("node", h.ID().String()).Msg("RPC ready")
 				break
 			}
 			time.Sleep(100 * time.Millisecond)
@@ -113,6 +119,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			if err != nil {
 				return fmt.Errorf("parse peer %q: %w", url, err)
 			}
+			m.logger.Debug().Str("from", h.ID().String()).Str("to", peer.String()).Msg("Add peer")
 			srv.AddPeer(peer)
 		}
 	}
@@ -121,6 +128,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 	go func() {
 		<-ctx.Done()
 		for _, h := range m.handles {
+			m.logger.Info().Str("node", h.ID().String()).Msg("Shutting down")
 			_ = h.Close()
 		}
 	}()
