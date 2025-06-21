@@ -89,6 +89,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 			return nil, fmt.Errorf("register catalyst: %w", err)
 		}
 	}
+	ethService.SetSynced()
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
 	}

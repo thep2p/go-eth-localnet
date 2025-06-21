@@ -216,68 +216,60 @@ func TestSingleMinerChainSync(t *testing.T) {
 		numbers := make([]uint64, len(handles))
 		hashes := make([]string, len(handles))
 		for i, h := range handles {
-			t.Log("Checking node", h.ID().String())
 			client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
 			if err != nil {
-				t.Log("Node", h.ID().String(), "is not ready")
 				return false
 			}
 			defer client.Close()
-			t.Log("Node", h.ID().String(), "is ready")
 			var hexNum string
 			if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
-				t.Log("Node", h.ID().String(), "is not ready")
 				return false
 			}
-			t.Log("Node", h.ID().String(), "has block", hexNum)
 			num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
 			if !ok {
-				t.Log("Node", h.ID().String(), "has invalid block number", hexNum)
 				return false
 			}
 			numbers[i] = num.Uint64()
 
 			var block map[string]any
 			if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", hexNum, false); err != nil {
-				t.Log("Node", h.ID().String(), "is not ready")
 				return false
 			}
 			hashes[i], _ = block["hash"].(string)
 		}
 
-		if numbers[0] < 1 {
-			t.Log("No blocks produced")
+		if numbers[0] < 6 {
 			return false
 		}
-		//for i := 1; i < len(numbers); i++ {
-		//	if numbers[i] != numbers[0] || hashes[i] != hashes[0] {
-		//		return false
-		//	}
-		//}
+		for i := 1; i < len(numbers); i++ {
+			if numbers[i] != numbers[0] || hashes[i] != hashes[0] {
+				return false
+			}
+		}
 		return true
 	}, 10*time.Second, 250*time.Millisecond)
 
-	//// Ensure no uncles are present at the head block
-	//require.Eventually(t, func() bool {
-	//	for _, h := range handles {
-	//		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
-	//		if err != nil {
-	//			return false
-	//		}
-	//		defer client.Close()
-	//		var hexNum string
-	//		if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
-	//			return false
-	//		}
-	//		var block map[string]any
-	//		if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", hexNum, false); err != nil {
-	//			return false
-	//		}
-	//		uncles, ok := block["uncles"].([]any)
-	//		if !ok || len(uncles) != 0 {
-	//			return false
-	//		}
-	//	}
-	//	return true
-	//}, 10*time.Second, 250*time.Millisecond)
+	// Ensure no uncles are present at the head block
+	require.Eventually(t, func() bool {
+		for _, h := range handles {
+			client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
+			if err != nil {
+				return false
+			}
+			defer client.Close()
+			var hexNum string
+			if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
+				return false
+			}
+			var block map[string]any
+			if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", hexNum, false); err != nil {
+				return false
+			}
+			uncles, ok := block["uncles"].([]any)
+			if !ok || len(uncles) != 0 {
+				return false
+			}
+		}
+		return true
+	}, 10*time.Second, 250*time.Millisecond)
 }
