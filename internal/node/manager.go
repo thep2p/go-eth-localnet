@@ -28,6 +28,7 @@ type Manager struct {
 	mu       sync.Mutex
 	handles  []*model.Handle
 	shutdown sync.WaitGroup
+	cancel   context.CancelFunc
 }
 
 // NewNodeManager constructs a Manager that will launch and wire up n nodes.
@@ -45,6 +46,7 @@ func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir strin
 // RPC endpoint becomes reachable. It returns an error if any node fails to
 // launch or expose its RPC within the timeout.
 func (m *Manager) Start(ctx context.Context, n int) error {
+	ctx, m.cancel = context.WithCancel(ctx)
 	// 1) Prepare configs and enode URLs for all nodes
 	configs := make([]model.Config, n)
 	enodes := make([]string, n)
@@ -146,7 +148,10 @@ func (m *Manager) Handles() []*model.Handle {
 	return append([]*model.Handle{}, m.handles...)
 }
 
-// Wait blocks until all nodes have shut down.
+// Wait cancels the network context and blocks until all nodes have shut down.
 func (m *Manager) Wait() {
+	if m.cancel != nil {
+		m.cancel()
+	}
 	m.shutdown.Wait()
 }

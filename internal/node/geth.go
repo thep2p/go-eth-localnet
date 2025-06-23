@@ -72,13 +72,15 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
 
+	var simBeacon *catalyst.SimulatedBeacon
 	if cfg.Mine {
 		if l.minerStarted {
 			l.logger.Fatal().Msg("multiple miners are not supported")
 		}
 		l.minerStarted = true
 
-		simBeacon, err := catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
+		var err error
+		simBeacon, err = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
 		if err != nil {
 			return nil, fmt.Errorf("simulated beacon: %w", err)
 		}
@@ -89,10 +91,13 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 			return nil, fmt.Errorf("register catalyst: %w", err)
 		}
 	}
-	ethService.SetSynced()
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
 	}
+	if simBeacon != nil {
+		simBeacon.Commit()
+	}
+	ethService.SetSynced()
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
