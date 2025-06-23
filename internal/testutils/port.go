@@ -22,16 +22,23 @@ func NewPortAssigner(t *testing.T) *PortAssigner {
 	}
 }
 
-// NewPort returns a new randomly assigned port that is not currently in use.
-// It keeps track of the assigned port to avoid conflicts in future calls.
+// NewPort returns a free TCP port that has not been handed out previously.
+// It loops until it finds an unused port, ensuring tests never allocate the
+// same port twice within a single run.
 func (p *PortAssigner) NewPort() int {
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic("failed to find open port: " + err.Error())
+	for {
+		l, err := net.Listen("tcp", ":0")
+		if err != nil {
+			panic("failed to find open port: " + err.Error())
+		}
+
+		port := l.Addr().(*net.TCPAddr).Port
+		require.NoError(p.t, l.Close(), "failed to close port listener")
+
+		if _, taken := p.assignedPorts[port]; taken {
+			continue
+		}
+		p.assignedPorts[port] = struct{}{}
+		return port
 	}
-
-	port := l.Addr().(*net.TCPAddr).Port
-	require.NoError(p.t, l.Close(), "failed to close port listener")
-
-	return port
 }
