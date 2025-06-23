@@ -6,20 +6,32 @@ import (
 	"testing"
 )
 
-// randomPort finds an available TCP port on localhost.
-func randomPort(t *testing.T) int {
+// PortAssigner provides deterministic port allocation for tests.
+// It ensures each assigned port is unique to avoid conflicts when starting multiple nodes.
+type PortAssigner struct {
+	t             *testing.T
+	assignedPorts map[int]struct{}
+}
+
+// NewPortAssigner initializes a PortAssigner bound to the given test instance.
+// The returned assigner should only be used within the lifetime of the test.
+func NewPortAssigner(t *testing.T) *PortAssigner {
+	return &PortAssigner{
+		t:             t,
+		assignedPorts: make(map[int]struct{}),
+	}
+}
+
+// NewPort returns a new randomly assigned port that is not currently in use.
+// It keeps track of the assigned port to avoid conflicts in future calls.
+func (p *PortAssigner) NewPort() int {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic("failed to find open port: " + err.Error())
 	}
-	defer func() {
-		require.NoError(t, l.Close(), "failed to close listener after finding random port")
-	}()
-	return l.Addr().(*net.TCPAddr).Port
-}
 
-// RandomPort is like randomPort but panics via `t.Fatalf` instead of `panic`.
-func RandomPort(t *testing.T) int {
-	t.Helper()
-	return randomPort(t)
+	port := l.Addr().(*net.TCPAddr).Port
+	require.NoError(p.t, l.Close(), "failed to close port listener")
+
+	return port
 }
