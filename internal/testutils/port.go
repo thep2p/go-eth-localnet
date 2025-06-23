@@ -11,6 +11,8 @@ type PortAssigner struct {
 	assignedPorts map[int]struct{}
 }
 
+// NewPortAssigner initializes a PortAssigner bound to the given test instance.
+// The returned assigner should only be used within the lifetime of the test.
 func NewPortAssigner(t *testing.T) *PortAssigner {
 	return &PortAssigner{
 		t:             t,
