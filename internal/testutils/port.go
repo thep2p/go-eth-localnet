@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// PortAssigner provides deterministic port allocation for tests.
+// It ensures each assigned port is unique to avoid conflicts when starting multiple nodes.
 type PortAssigner struct {
 	t             *testing.T
 	assignedPorts map[int]struct{}
