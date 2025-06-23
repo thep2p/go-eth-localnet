@@ -1,4 +1,3 @@
-// launcher.go
 package node
 
 import (
