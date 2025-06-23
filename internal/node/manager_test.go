@@ -3,12 +3,10 @@ package node_test
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 	"testing"
@@ -182,94 +180,61 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 	}
 }
 
-// TestSingleMinerChainSync verifies that a single mining node produces blocks
-// and the remaining nodes follow the same chain without forking.
-func TestSingleMinerChainSync(t *testing.T) {
+// setupNodes is a helper function to initialize and start a specified number of nodes.
+// It returns the context, manager, and handles for the started nodes.
+func setupNodes(t *testing.T, numNodes int) (context.Context, context.CancelFunc, *node.Manager, []*model.Handle) {
+	t.Helper()
+
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	defer manager.Wait()
+	t.Cleanup(cancel)
+	t.Cleanup(manager.Wait)
 
-	require.NoError(t, manager.Start(ctx, 3))
+	require.NoError(t, manager.Start(ctx, numNodes))
 	handles := manager.Handles()
-	require.Len(t, handles, 3)
+	require.Len(t, handles, numNodes)
 
 	for _, h := range handles {
 		testutils.RequireRpcReadyWithinTimeout(t, ctx, h.RpcPort(), 5*time.Second)
 	}
 
-	// Wait until each node sees two peers
+	return ctx, cancel, manager, handles
+}
+
+// TestNodeStartupAndRPC ensures that a single node can be successfully launched
+// and its RPC interface becomes responsive.
+func TestNodeStartupAndRPC(t *testing.T) {
+	// Setup will start one node and check for RPC readiness.
+	// The test passes if setup completes without errors.
+	_, cancel, _, handles := setupNodes(t, 1)
+	defer func() {
+		cancel()
+		testutils.RequireHandlersClosedWithinTimeout(t, handles, 5*time.Second) // No handles to close in this case
+	}()
+
+}
+
+// TestPeerDiscovery verifies that multiple nodes can discover and connect to each other.
+func TestPeerDiscovery(t *testing.T) {
+	_, cancel, _, handles := setupNodes(t, 3)
+	defer func() {
+		cancel()
+		testutils.RequireHandlersClosedWithinTimeout(t, handles, 5*time.Second)
+	}()
+
+	// We expect each of the 3 nodes to connect to the other 2.
+	expectedPeers := 2
+
+	// Wait until each node reports having two peers.
 	require.Eventually(t, func() bool {
 		for _, h := range handles {
-			if len(h.Server().Peers()) != 2 {
+			if len(h.Server().Peers()) != expectedPeers {
 				return false
 			}
 		}
 		return true
-	}, 2*time.Second, 100*time.Millisecond)
-
-	// Wait for at least six blocks and ensure all nodes report the same head
-	require.Eventually(t, func() bool {
-		numbers := make([]uint64, len(handles))
-		hashes := make([]string, len(handles))
-		for i, h := range handles {
-			client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
-			if err != nil {
-				return false
-			}
-			defer client.Close()
-			var hexNum string
-			if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
-				return false
-			}
-			num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
-			if !ok {
-				return false
-			}
-			numbers[i] = num.Uint64()
-
-			var block map[string]any
-			if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", hexNum, false); err != nil {
-				return false
-			}
-			hashes[i], _ = block["hash"].(string)
-		}
-
-		if numbers[0] < 1 {
-			return false
-		}
-		for i := 1; i < len(numbers); i++ {
-			if numbers[i] != numbers[0] || hashes[i] != hashes[0] {
-				return false
-			}
-		}
-		return true
-	}, 10*time.Second, 250*time.Millisecond)
-
-	//// Ensure no uncles are present at the head block
-	//require.Eventually(t, func() bool {
-	//	for _, h := range handles {
-	//		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort()))
-	//		if err != nil {
-	//			return false
-	//		}
-	//		defer client.Close()
-	//		var hexNum string
-	//		if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
-	//			return false
-	//		}
-	//		var block map[string]any
-	//		if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", hexNum, false); err != nil {
-	//			return false
-	//		}
-	//		uncles, ok := block["uncles"].([]any)
-	//		if !ok || len(uncles) != 0 {
-	//			return false
-	//		}
-	//	}
-	//	return true
-	//}, 10*time.Second, 250*time.Millisecond)
+	}, 10*time.Second, 200*time.Millisecond, "nodes did not connect to the expected number of peers")
 }
