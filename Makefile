@@ -36,15 +36,15 @@ install-tools: check-go-version
 	@echo "Installing other tools..."
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "🔧 Installing golangci-lint..."; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 	else \
-		VERSION=$$(golangci-lint --version | awk '{print $$NF}'); \
-		if [[ "$${VERSION}" != "v1.64.5" ]]; then \
-			echo "🔄 Updating/Downgrading golangci-lint to v1.64.5..."; \
+		VERSION=$$(golangci-lint --version --format "{{.Version}}"); \
+		if [[ "$${VERSION}" != "$(LINT_VERSION)" ]]; then \
+			echo "🔄 Updating/Downgrading golangci-lint to $(LINT_VERSION)..."; \
 			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
-			go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
+			go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 		else \
-			echo "✅ golangci-lint v1.64.5 is already installed."; \
+			echo "✅ golangci-lint $(LINT_VERSION) is already installed."; \
 		fi; \
 	fi
 	@echo "✅ All tools installed successfully."
@@ -54,10 +54,16 @@ install-tools: check-go-version
 # Linting target with a dependency on Go version check
 .PHONY: lint-fix
 lint: check-go-version tidy
-	 @echo "Running golangci-lint..."
 	 @golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
 
 .PHONY: tidy
 tidy: check-go-version
-	@echo "Running go mod tidy..."
 	@go mod tidy
+
+.PHONY: build
+build: check-go-version tidy
+	@go build ./...
+
+.PHONY: test
+test: check-go-version tidy
+	@go test -v ./...
