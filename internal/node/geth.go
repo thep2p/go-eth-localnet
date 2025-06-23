@@ -1,4 +1,3 @@
-// launcher.go
 package node
 
 import (
@@ -14,7 +13,7 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
-// Launcher starts a Geth node, injecting StaticNodes from cfg.
+// Launcher provides methods to initialize and manage Geth node instances. It uses a logger for operational logging.
 type Launcher struct {
 	logger zerolog.Logger
 }
