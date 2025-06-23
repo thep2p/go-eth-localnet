@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+// TestSingleNodeLaunch verifies that a single Geth node can be launched and
+// returns a handle with an enode URL.
 func TestSingleNodeLaunch(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	tmp := testutils.NewTempDir(t)
