@@ -81,7 +81,14 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 
 	// 3) Launch all nodes
 	for i := range configs {
-		m.logger.Info().Int("index", i).Msg("Launching node")
+		m.logger.Info().
+			Int("index", i).
+			Str("id", configs[i].ID.String()).
+			Str("dataDir", configs[i].DataDir).
+			Int("p2pPort", configs[i].P2PPort).
+			Int("rpcPort", configs[i].RPCPort).
+			Bool("mine", configs[i].Mine).
+			Msg("Launching node")
 		h, err := m.launcher.Launch(configs[i])
 		if err != nil {
 			return fmt.Errorf("launch node %d: %w", i, err)
