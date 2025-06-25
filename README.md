@@ -31,6 +31,8 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 - Graceful shutdown waits for nodes to close
 - Pluggable support for Prysm and future CL clients
 - Clean CI, linting, and testability
+- Unique port allocation for reliable tests
+- Explicit temp directory cleanup helpers
 
 ## 🛠️ Getting Started
 
