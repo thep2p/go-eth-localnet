@@ -294,3 +294,67 @@ func TestSingleMinerBlockProduction(t *testing.T) {
 		return num.Uint64() >= 3
 	}, 15*time.Second, 500*time.Millisecond, "single node failed to produce blocks")
 }
+
+// TestMultiNodeChainSync verifies that non-mining nodes sync the chain from a single miner
+// and all nodes maintain the same chain head. It also checks for the absence of uncles.
+func TestMultiNodeChainSync(t *testing.T) {
+	ctx, cancel, _, handles := setupNodes(t, 3)
+	t.Cleanup(cancel)
+
+	// Wait for nodes to connect to each other first.
+	require.Eventually(t, func() bool {
+		for _, h := range handles {
+			if len(h.Server().Peers()) != 2 {
+				return false
+			}
+		}
+		return true
+	}, 10*time.Second, 200*time.Millisecond)
+
+	// Wait for a reasonable block height and then check for chain consistency.
+	require.Eventually(t, func() bool {
+		var headBlock map[string]interface{}
+		var headBlockHash string
+
+		// Get the head block from the first node.
+		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handles[0].RpcPort()))
+		if err != nil {
+			return false
+		}
+		defer client.Close()
+
+		if err := client.CallContext(ctx, &headBlock, "eth_getBlockByNumber", "latest", false); err != nil {
+			return false
+		}
+
+		blockNum, ok := new(big.Int).SetString(strings.TrimPrefix(headBlock["number"].(string), "0x"), 16)
+		if !ok || blockNum.Uint64() < 5 {
+			// Wait until we have at least 5 blocks before checking for sync.
+			return false
+		}
+		headBlockHash, _ = headBlock["hash"].(string)
+
+		// Verify all other nodes have the same block hash at the same height.
+		for i := 1; i < len(handles); i++ {
+			var otherNodeBlock map[string]interface{}
+			otherClient, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handles[i].RpcPort()))
+			if err != nil {
+				return false
+			}
+			defer otherClient.Close()
+
+			if err := otherClient.CallContext(ctx, &otherNodeBlock, "eth_getBlockByNumber", headBlock["number"].(string), false); err != nil {
+				return false
+			}
+			otherBlockHash, _ := otherNodeBlock["hash"].(string)
+
+			if otherBlockHash != headBlockHash {
+				return false
+			}
+		}
+
+		// As a final check, ensure the head block has no uncles.
+		uncles, _ := headBlock["uncles"].([]interface{})
+		return len(uncles) == 0
+	}, 20*time.Second, 500*time.Millisecond, "nodes failed to sync to the same chain head or uncles were present")
+}
