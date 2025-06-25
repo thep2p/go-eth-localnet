@@ -40,5 +40,6 @@ func TestSingleNodeLaunch(t *testing.T) {
 			logger.Fatal().Err(err).Msg("failed to close node")
 		}
 		logger.Info().Msg("Node closed successfully")
+		tmp.Remove()
 	}()
 }

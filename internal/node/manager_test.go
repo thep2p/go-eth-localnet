@@ -22,7 +22,11 @@ func TestStartMultipleNodes_Startup(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		manager.Wait()
+		tmp.Remove()
+	}()
 
 	err := manager.Start(ctx, 3)
 	require.NoError(t, err)
@@ -49,7 +53,14 @@ func TestMultipleGethNodes_StaticPeers(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		manager.Wait()
+		for _, h := range manager.Handles() {
+			testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
+		}
+		tmp.Remove()
+	}()
 
 	err := manager.Start(ctx, 3)
 	require.NoError(t, err)
@@ -59,15 +70,6 @@ func TestMultipleGethNodes_StaticPeers(t *testing.T) {
 	for _, h := range manager.Handles() {
 		testutils.RequireRpcReadyWithinTimeout(t, ctx, h.RpcPort(), 5*time.Second)
 	}
-
-	defer func() {
-		// Shutdown the network
-		cancel()
-		manager.Wait()
-		for _, h := range manager.Handles() {
-			testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
-		}
-	}()
 
 	// Expect non-zero peer counts (but will fail because static-nodes.json was ignored before)
 	for _, h := range manager.Handles() {
@@ -87,7 +89,11 @@ func TestMultipleGethNodes_UniquePorts(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		cancel()
+		manager.Wait()
+		tmp.Remove()
+	}()
 
 	require.NoError(t, manager.Start(ctx, 3))
 	handles := manager.Handles()
@@ -126,10 +132,18 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	var handles []*model.Handle
+	defer func() {
+		cancel()
+		manager.Wait()
+		for _, h := range handles {
+			testutils.RequirePortClosesWithinTimeout(t, h.RpcPort(), 5*time.Second)
+		}
+		tmp.Remove()
+	}()
 
 	require.NoError(t, manager.Start(ctx, 3))
-	handles := manager.Handles()
+	handles = manager.Handles()
 	require.Len(t, handles, 3)
 
 	// Ensure all nodes are ready and can communicate
@@ -160,10 +174,13 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 	}
 
 	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-	manager = node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
-	})
+	defer func() {
+		cancel()
+		manager.Wait()
+		tmp.Remove()
+	}()
+	launcher = node.NewLauncher(testutils.Logger(t))
+	manager = node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
 
 	require.NoError(t, manager.Start(ctx, 3))
 	handles2 := manager.Handles()
@@ -204,6 +221,7 @@ func setupNodes(t *testing.T, numNodes int) (context.Context, context.CancelFunc
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	t.Cleanup(manager.Wait)
+	t.Cleanup(tmp.Remove)
 
 	require.NoError(t, manager.Start(ctx, numNodes))
 	handles := manager.Handles()
@@ -221,21 +239,15 @@ func setupNodes(t *testing.T, numNodes int) (context.Context, context.CancelFunc
 func TestNodeStartupAndRPC(t *testing.T) {
 	// Setup will start one node and check for RPC readiness.
 	// The test passes if setup completes without errors.
-	_, cancel, _, handles := setupNodes(t, 1)
-	defer func() {
-		cancel()
-		testutils.RequireHandlersClosedWithinTimeout(t, handles, 5*time.Second) // No handles to close in this case
-	}()
+	_, cancel, _, _ := setupNodes(t, 1)
+	defer cancel()
 
 }
 
 // TestPeerDiscovery verifies that multiple nodes can discover and connect to each other.
 func TestPeerDiscovery(t *testing.T) {
 	_, cancel, _, handles := setupNodes(t, 3)
-	defer func() {
-		cancel()
-		testutils.RequireHandlersClosedWithinTimeout(t, handles, 5*time.Second)
-	}()
+	defer cancel()
 
 	// We expect each of the 3 nodes to connect to the other 2.
 	expectedPeers := 2

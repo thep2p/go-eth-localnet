@@ -30,6 +30,17 @@ type Manager struct {
 	cancel   context.CancelFunc
 }
 
+// cleanup stops all running nodes and waits for them to exit.
+// It should only be used when Start encounters an error before
+// the network's shutdown goroutine has been spawned.
+func (m *Manager) cleanup() {
+	for _, h := range m.handles {
+		_ = h.Close()
+		m.shutdown.Done()
+	}
+	m.handles = nil
+}
+
 // NewNodeManager constructs a Manager that will launch and wire up n nodes.
 func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner func() int) *Manager {
 	return &Manager{
@@ -91,6 +102,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			Msg("Launching node")
 		h, err := m.launcher.Launch(configs[i])
 		if err != nil {
+			m.cleanup()
 			return fmt.Errorf("launch node %d: %w", i, err)
 		}
 
@@ -106,6 +118,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		deadline := time.Now().Add(5 * time.Second)
 		for {
 			if time.Now().After(deadline) {
+				m.cleanup()
 				return fmt.Errorf("rpc %q never came up", rpcURL)
 			}
 			client, err := rpc.DialContext(ctx, rpcURL)
@@ -127,6 +140,7 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 			}
 			peer, err := enode.Parse(enode.ValidSchemes, url)
 			if err != nil {
+				m.cleanup()
 				return fmt.Errorf("parse peer %q: %w", url, err)
 			}
 			m.logger.Debug().Str("from", h.ID().String()).Str("to", peer.String()).Msg("Add peer")

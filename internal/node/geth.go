@@ -93,9 +93,7 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
 	}
-	if simBeacon != nil {
-		simBeacon.Commit()
-	}
+
 	ethService.SetSynced()
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
