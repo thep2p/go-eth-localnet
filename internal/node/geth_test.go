@@ -16,7 +16,7 @@ import (
 func TestSingleNodeLaunch(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	tmp := testutils.NewTempDir(t)
-	p2pPort := testutils.GlobalPortAssigner.NewPort(t)
+	p2pPort := testutils.NewPort(t)
 
 	// TODO: use a config fixture if this pattern is repeated
 	privateKey := testutils.PrivateKeyFixture(t)
@@ -24,7 +24,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 		ID:         enode.PubkeyToIDV4(&privateKey.PublicKey),
 		DataDir:    tmp.Path(),
 		P2PPort:    p2pPort,
-		RPCPort:    testutils.GlobalPortAssigner.NewPort(t),
+		RPCPort:    testutils.NewPort(t),
 		PrivateKey: privateKey,
 	}
 

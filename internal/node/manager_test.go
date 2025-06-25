@@ -18,7 +18,7 @@ func TestStartMultipleNodes_Startup(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
+		return testutils.NewPort(t)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,7 +49,7 @@ func TestMultipleGethNodes_StaticPeers(t *testing.T) {
 
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
+		return testutils.NewPort(t)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -85,7 +85,7 @@ func TestMultipleGethNodes_UniquePorts(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
+		return testutils.NewPort(t)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -128,7 +128,7 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
+		return testutils.NewPort(t)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -180,7 +180,9 @@ func TestMultipleGethNodes_StaticPeers_PostRestart(t *testing.T) {
 		tmp.Remove()
 	}()
 	launcher = node.NewLauncher(testutils.Logger(t))
-	manager = node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), testutils.NewPortAssigner(t))
+	manager = node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
+		return testutils.NewPort(t)
+	})
 
 	require.NoError(t, manager.Start(ctx, 3))
 	handles2 := manager.Handles()
@@ -215,7 +217,7 @@ func setupNodes(t *testing.T, numNodes int) (context.Context, context.CancelFunc
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
 	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.GlobalPortAssigner.NewPort(t)
+		return testutils.NewPort(t)
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
