@@ -71,25 +71,27 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
 
-	var simBeacon *catalyst.SimulatedBeacon
+	var (
+		simBeacon *catalyst.SimulatedBeacon
+		beaconErr error
+	)
 	if cfg.Mine {
 		if l.minerStarted {
 			l.logger.Fatal().Msg("multiple miners are not supported")
 		}
 		l.minerStarted = true
-
-		var err error
-		simBeacon, err = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
-		if err != nil {
-			return nil, fmt.Errorf("simulated beacon: %w", err)
-		}
-		catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
-		stack.RegisterLifecycle(simBeacon)
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
 	} else {
-		if err := catalyst.Register(stack, ethService); err != nil {
-			return nil, fmt.Errorf("register catalyst: %w", err)
-		}
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, common.Address{}, ethService)
 	}
+	if beaconErr != nil {
+		return nil, fmt.Errorf("simulated beacon: %w", beaconErr)
+	}
+	catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
+	if err := catalyst.Register(stack, ethService); err != nil {
+		return nil, fmt.Errorf("register catalyst: %w", err)
+	}
+	stack.RegisterLifecycle(simBeacon)
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
 	}
