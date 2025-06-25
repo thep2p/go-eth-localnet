@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
-	"github.com/thep2p/go-eth-localnet/internal"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
@@ -23,7 +22,7 @@ type Manager struct {
 	logger       zerolog.Logger
 	baseDataDir  string
 	launcher     *Launcher
-	portAssigner internal.PortAssigner
+	portAssigner func() int
 
 	mu       sync.Mutex
 	handles  []*model.Handle
@@ -32,7 +31,7 @@ type Manager struct {
 }
 
 // NewNodeManager constructs a Manager that will launch and wire up n nodes.
-func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner internal.PortAssigner) *Manager {
+func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner func() int) *Manager {
 	return &Manager{
 		logger:       logger.With().Str("component", "node-manager").Logger(),
 		baseDataDir:  baseDataDir,
@@ -59,8 +58,8 @@ func (m *Manager) Start(ctx context.Context, n int) error {
 		cfg := model.Config{
 			ID:         enode.PubkeyToIDV4(&priv.PublicKey),
 			DataDir:    filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", i)),
-			P2PPort:    m.portAssigner.NewPort(),
-			RPCPort:    m.portAssigner.NewPort(),
+			P2PPort:    m.portAssigner(),
+			RPCPort:    m.portAssigner(),
 			PrivateKey: priv,
 			Mine:       i == 0,
 		}
