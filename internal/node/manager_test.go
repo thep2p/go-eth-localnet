@@ -9,6 +9,8 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"math/big"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,7 +223,6 @@ func setupNodes(t *testing.T, numNodes int) (context.Context, context.CancelFunc
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 	t.Cleanup(manager.Wait)
 	t.Cleanup(tmp.Remove)
 
@@ -263,4 +264,33 @@ func TestPeerDiscovery(t *testing.T) {
 		}
 		return true
 	}, 10*time.Second, 200*time.Millisecond, "nodes did not connect to the expected number of peers")
+}
+
+// TestSingleMinerBlockProduction checks if a single mining node can produce blocks.
+func TestSingleMinerBlockProduction(t *testing.T) {
+	ctx, cancel, _, handles := setupNodes(t, 1)
+	handle := handles[0]
+	t.Cleanup(cancel)
+
+	// Wait for the node to produce at least 3 blocks.
+	require.Eventually(t, func() bool {
+		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+		if err != nil {
+			return false
+		}
+		defer client.Close()
+
+		var hexNum string
+		if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
+			return false
+		}
+
+		num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
+		if !ok {
+			return false
+		}
+
+		// Check if block number is at least 3.
+		return num.Uint64() >= 3
+	}, 15*time.Second, 500*time.Millisecond, "single node failed to produce blocks")
 }
