@@ -65,7 +65,11 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
-	ethCfg := &ethconfig.Config{NetworkId: 1337, Genesis: core.DeveloperGenesisBlock(11500000, nil)}
+	ethCfg := &ethconfig.Config{
+		NetworkId: 1337,
+		Genesis:   core.DeveloperGenesisBlock(11500000, nil),
+		SyncMode:  ethconfig.FullSync,
+	}
 	ethService, err := eth.New(stack, ethCfg)
 	if err != nil {
 		return nil, fmt.Errorf("attach eth: %w", err)
@@ -96,7 +100,9 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("start node: %w", err)
 	}
 
-	ethService.SetSynced()
+	if cfg.Mine {
+		ethService.SetSynced()
+	}
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil

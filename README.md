@@ -27,6 +27,7 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 
 - Launch multiple Geth nodes on localhost
 - Single miner node runs in developer mode for rapid blocks
+- Passive follower nodes sync using the simulated beacon
 - Programmatic control over ports, datadirs, peering
 - Graceful shutdown waits for nodes to close
 - Pluggable support for Prysm and future CL clients
