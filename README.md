@@ -23,13 +23,12 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
   - **Dockerized**: use Go SDK to control containerized nodes
 - Compatible with full EL+CL setup (Geth + Prysm)
 
-## 🚀 Features
-
-- Launch multiple Geth nodes on localhost
-- Single miner node runs in developer mode for rapid blocks
-- Passive follower nodes sync using the simulated beacon
-- Programmatic control over ports, datadirs, peering
-- Graceful shutdown waits for nodes to close
+-## 🚀 Features
+-
+- Launch a single Geth node on localhost
+- Blocks are produced using the simulated beacon
+- Programmatic control over ports and datadirs
+- Graceful shutdown waits for the node to close
 - Pluggable support for Prysm and future CL clients
 - Clean CI, linting, and testability
 - Unique port allocation for reliable tests
@@ -44,7 +43,7 @@ go run main.go
 ```
 
 ## 🗺️ Roadmap
-- [ ] Single Geth node (in-process)
+- [x] Single Geth node (in-process)
 - [ ] Multi-node Geth network with peer connections
 - [ ] Docker-mode node runner (via Go SDK)
 - [ ] CL integration: Prysm processes and Engine API
