@@ -103,7 +103,8 @@ func TestBlockProductionMonitoring(t *testing.T) {
 	require.Greater(t, n2.Uint64(), n1.Uint64(), "block number did not increase")
 }
 
-// TestPostMergeBlockStructureValidation checks PoS block header fields.
+// TestPostMergeBlockStructureValidation verifies the structure of blocks post-merge, ensuring
+// PoW-related fields are zero or empty, and block production is functioning correctly.
 func TestPostMergeBlockStructureValidation(t *testing.T) {
 	ctx, cancel, _, handle := startNode(t)
 	defer cancel()
@@ -112,33 +113,53 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	require.NoError(t, err)
 	defer client.Close()
 
-	time.Sleep(5 * time.Second)
-
+	// Fetch the latest block to validate its structure
+	// the block map holds the latest block data by its attributes
 	var block map[string]interface{}
-	require.NoError(t, client.CallContext(ctx, &block, "eth_getBlockByNumber", "latest", false))
+	require.Eventually(t, func() bool {
+		if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", "latest", false); err != nil {
+			return false
+		}
+		return true
+	}, 5*time.Second, 500*time.Millisecond, "could not fetch latest block")
 
+	// Ethereum post-merge transitioned to PoS, so PoW-related fields should be zero or empty.
+	// Difficulty is the computational effort required to mine a block, which is no longer applicable.
 	diffStr, ok := block["difficulty"].(string)
 	require.True(t, ok)
-	require.Equal(t, "0x0", strings.ToLower(diffStr))
+	require.Equal(t, "0x0", strings.ToLower(diffStr), "difficulty should be zero post-merge")
 
+	// Total difficulty is the cumulative difficulty of all blocks up to this point, which should also be zero for the first block.
+	// If totalDifficulty is not set, it defaults to "0x0".
 	tdStr, _ := block["totalDifficulty"].(string)
 	if tdStr == "" {
 		tdStr = "0x0"
 	}
+	// Convert the total difficulty string to a big.Int for validation.
 	td, ok := new(big.Int).SetString(strings.TrimPrefix(tdStr, "0x"), 16)
 	require.True(t, ok)
 	require.Zero(t, td.Int64())
 
+	// Post-merge, mixHash represents commitment to the randomness in block proposal.
+	// It should be a non-empty string.
 	mix1, ok := block["mixHash"].(string)
 	require.True(t, ok)
 	require.NotEmpty(t, mix1)
 
-	time.Sleep(3 * time.Second)
+	// mixHash should change with each new block, so we will fetch the latest block again
+	// to ensure block production is working and mixHash is updated.
+	require.Eventually(t, func() bool {
+		var block2 map[string]interface{}
+		if err := client.CallContext(ctx, &block2, "eth_getBlockByNumber", "latest", false); err != nil {
+			return false
+		}
+		mix2, ok := block2["mixHash"].(string)
+		require.True(t, ok, "mixHash should be a string")
+		require.NotEmpty(t, mix2, "mixHash should not be empty in the latest block")
+		if mix1 == mix2 {
+			return false // mixHash should change with each new block
+		}
+		return true
+	}, 3*time.Second, 500*time.Millisecond, "could not fetch latest block again")
 
-	var block2 map[string]interface{}
-	require.NoError(t, client.CallContext(ctx, &block2, "eth_getBlockByNumber", "latest", false))
-	mix2, ok := block2["mixHash"].(string)
-	require.True(t, ok)
-	require.NotEmpty(t, mix2)
-	require.NotEqual(t, mix1, mix2)
 }
