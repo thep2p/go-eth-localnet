@@ -16,7 +16,7 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
-// Launcher starts a Geth node, injecting StaticNodes from cfg.
+// Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
 type Launcher struct {
 	logger       zerolog.Logger
 	minerStarted bool

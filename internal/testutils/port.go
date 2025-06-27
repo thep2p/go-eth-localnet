@@ -19,7 +19,7 @@ func NewPort(t *testing.T) int {
 	for {
 		l, err := net.Listen("tcp", ":0")
 		if err != nil {
-			panic("failed to find open port: " + err.Error())
+			t.Fatalf("failed to find open port: %v", err)
 		}
 
 		port := l.Addr().(*net.TCPAddr).Port
