@@ -78,3 +78,67 @@ func TestBlockProduction(t *testing.T) {
 		return num.Uint64() >= 3
 	}, 15*time.Second, 500*time.Millisecond, "node failed to produce blocks")
 }
+
+// TestBlockProductionMonitoring verifies that block numbers advance over time.
+func TestBlockProductionMonitoring(t *testing.T) {
+	ctx, cancel, _, handle := startNode(t)
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	var hex1 string
+	require.NoError(t, client.CallContext(ctx, &hex1, "eth_blockNumber"))
+	n1, ok := new(big.Int).SetString(strings.TrimPrefix(hex1, "0x"), 16)
+	require.True(t, ok, "invalid block number")
+
+	time.Sleep(5 * time.Second)
+
+	var hex2 string
+	require.NoError(t, client.CallContext(ctx, &hex2, "eth_blockNumber"))
+	n2, ok := new(big.Int).SetString(strings.TrimPrefix(hex2, "0x"), 16)
+	require.True(t, ok, "invalid block number")
+
+	require.Greater(t, n2.Uint64(), n1.Uint64(), "block number did not increase")
+}
+
+// TestPostMergeBlockStructureValidation checks PoS block header fields.
+func TestPostMergeBlockStructureValidation(t *testing.T) {
+	ctx, cancel, _, handle := startNode(t)
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	time.Sleep(5 * time.Second)
+
+	var block map[string]interface{}
+	require.NoError(t, client.CallContext(ctx, &block, "eth_getBlockByNumber", "latest", false))
+
+	diffStr, ok := block["difficulty"].(string)
+	require.True(t, ok)
+	require.Equal(t, "0x0", strings.ToLower(diffStr))
+
+	tdStr, _ := block["totalDifficulty"].(string)
+	if tdStr == "" {
+		tdStr = "0x0"
+	}
+	td, ok := new(big.Int).SetString(strings.TrimPrefix(tdStr, "0x"), 16)
+	require.True(t, ok)
+	require.Zero(t, td.Int64())
+
+	mix1, ok := block["mixHash"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, mix1)
+
+	time.Sleep(3 * time.Second)
+
+	var block2 map[string]interface{}
+	require.NoError(t, client.CallContext(ctx, &block2, "eth_getBlockByNumber", "latest", false))
+	mix2, ok := block2["mixHash"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, mix2)
+	require.NotEqual(t, mix1, mix2)
+}
