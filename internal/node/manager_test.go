@@ -38,8 +38,9 @@ func startNode(t *testing.T) (context.Context, context.CancelFunc, *node.Manager
 	return ctx, cancel, manager, handle
 }
 
-// TestManagerStart verifies that a node starts and exposes an RPC endpoint.
-func TestManagerStart(t *testing.T) {
+// TestClientVersion verifies that the node returns a valid
+// identifier for the `web3_clientVersion` RPC call.
+func TestClientVersion(t *testing.T) {
 	ctx, cancel, _, handle := startNode(t)
 	defer cancel()
 
@@ -50,6 +51,7 @@ func TestManagerStart(t *testing.T) {
 	var ver string
 	require.NoError(t, client.CallContext(ctx, &ver, "web3_clientVersion"))
 	require.NotEmpty(t, ver)
+	require.Contains(t, ver, "/")
 }
 
 // TestBlockProduction ensures that the single node produces blocks when mining.
