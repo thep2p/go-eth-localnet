@@ -1,5 +1,5 @@
 # Minimum Go version
-GO_MIN_VERSION := 1.23.10
+GO_MIN_VERSION := 1.23.0
 LINT_VERSION := v1.64.5
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
@@ -36,15 +36,15 @@ install-tools: check-go-version
 	@echo "Installing other tools..."
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "🔧 Installing golangci-lint..."; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 	else \
-		VERSION=$$(golangci-lint --version | awk '{print $$NF}'); \
-		if [[ "$${VERSION}" != "v1.64.5" ]]; then \
-			echo "🔄 Updating/Downgrading golangci-lint to v1.64.5..."; \
+		VERSION=$$(golangci-lint --version --format "{{.Version}}"); \
+		if [[ "$${VERSION}" != "$(LINT_VERSION)" ]]; then \
+			echo "🔄 Updating/Downgrading golangci-lint to $(LINT_VERSION)..."; \
 			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
-			go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5; \
+			go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 		else \
-			echo "✅ golangci-lint v1.64.5 is already installed."; \
+			echo "✅ golangci-lint $(LINT_VERSION) is already installed."; \
 		fi; \
 	fi
 	@echo "✅ All tools installed successfully."
