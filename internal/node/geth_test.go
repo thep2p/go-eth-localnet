@@ -16,8 +16,7 @@ import (
 func TestSingleNodeLaunch(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 	tmp := testutils.NewTempDir(t)
-	portAssigner := testutils.NewPortAssigner(t)
-	p2pPort := portAssigner.NewPort()
+	p2pPort := testutils.NewPort(t)
 
 	// TODO: use a config fixture if this pattern is repeated
 	privateKey := testutils.PrivateKeyFixture(t)
@@ -25,7 +24,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 		ID:         enode.PubkeyToIDV4(&privateKey.PublicKey),
 		DataDir:    tmp.Path(),
 		P2PPort:    p2pPort,
-		RPCPort:    portAssigner.NewPort(),
+		RPCPort:    testutils.NewPort(t),
 		PrivateKey: privateKey,
 	}
 
@@ -41,5 +40,6 @@ func TestSingleNodeLaunch(t *testing.T) {
 			logger.Fatal().Err(err).Msg("failed to close node")
 		}
 		logger.Info().Msg("Node closed successfully")
+		tmp.Remove()
 	}()
 }

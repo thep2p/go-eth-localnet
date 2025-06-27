@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -13,9 +16,10 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
-// Launcher provides methods to initialize and manage Geth node instances. It uses a logger for operational logging.
+// Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
 type Launcher struct {
-	logger zerolog.Logger
+	logger       zerolog.Logger
+	minerStarted bool
 }
 
 // NewLauncher returns a Launcher.
@@ -61,11 +65,43 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
-	if _, err := eth.New(stack, &ethconfig.Config{NetworkId: 1337}); err != nil {
+	ethCfg := &ethconfig.Config{
+		NetworkId: 1337,
+		Genesis:   core.DeveloperGenesisBlock(11500000, nil),
+		SyncMode:  ethconfig.FullSync,
+	}
+	ethService, err := eth.New(stack, ethCfg)
+	if err != nil {
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
+
+	var (
+		simBeacon *catalyst.SimulatedBeacon
+		beaconErr error
+	)
+	if cfg.Mine {
+		if l.minerStarted {
+			l.logger.Fatal().Msg("multiple miners are not supported")
+		}
+		l.minerStarted = true
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
+	} else {
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, common.Address{}, ethService)
+	}
+	if beaconErr != nil {
+		return nil, fmt.Errorf("simulated beacon: %w", beaconErr)
+	}
+	catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
+	if err := catalyst.Register(stack, ethService); err != nil {
+		return nil, fmt.Errorf("register catalyst: %w", err)
+	}
+	stack.RegisterLifecycle(simBeacon)
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
+	}
+
+	if cfg.Mine {
+		ethService.SetSynced()
 	}
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
