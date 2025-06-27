@@ -1,5 +1,5 @@
 # Minimum Go version
-GO_MIN_VERSION := 1.23.0
+GO_MIN_VERSION := 1.23.10
 LINT_VERSION := v1.64.5
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
