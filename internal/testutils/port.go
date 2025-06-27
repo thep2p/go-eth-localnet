@@ -18,9 +18,7 @@ var (
 func NewPort(t *testing.T) int {
 	for {
 		l, err := net.Listen("tcp", ":0")
-		if err != nil {
-			t.Fatalf("failed to find open port: %v", err)
-		}
+		require.NoError(t, err, "failed to listen on port")
 
 		port := l.Addr().(*net.TCPAddr).Port
 		require.NoError(t, l.Close(), "failed to close port listener")
