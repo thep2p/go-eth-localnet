@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	gethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
@@ -16,14 +17,15 @@ import (
 )
 
 // Manager starts and stops a single Geth node backed by a simulated beacon.
-// It exposes the running node via Handle and waits for shutdown.
+// It exposes the running node and waits for shutdown.
 type Manager struct {
 	logger       zerolog.Logger
 	baseDataDir  string
 	launcher     *Launcher
 	portAssigner func() int
 
-	handle   *model.Handle
+	gethNode *gethnode.Node
+	cfg      model.Config
 	shutdown chan struct{}
 	cancel   context.CancelFunc
 }
@@ -57,17 +59,18 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 		Mine:       true,
 	}
 
-	h, err := m.launcher.Launch(cfg, opts...)
+	n, err := m.launcher.Launch(cfg, opts...)
 	if err != nil {
 		return fmt.Errorf("launch node: %w", err)
 	}
-	m.handle = h
+	m.gethNode = n
+	m.cfg = cfg
 
-	rpcURL := fmt.Sprintf("http://127.0.0.1:%d", h.RpcPort())
+	rpcURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.RPCPort)
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		if time.Now().After(deadline) {
-			_ = h.Close()
+			_ = n.Close()
 			close(m.shutdown)
 			return fmt.Errorf("rpc %q never came up", rpcURL)
 		}
@@ -81,15 +84,18 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 
 	go func() {
 		<-ctx.Done()
-		_ = h.Close()
+		_ = n.Close()
 		close(m.shutdown)
 	}()
 
 	return nil
 }
 
-// Handle returns the running node handle or nil if the node is not started.
-func (m *Manager) Handle() *model.Handle { return m.handle }
+// GethNode returns the running node instance or nil if the node is not started.
+func (m *Manager) GethNode() *gethnode.Node { return m.gethNode }
+
+// RPCPort returns the RPC port the node is using.
+func (m *Manager) RPCPort() int { return m.cfg.RPCPort }
 
 // Wait blocks until the node has shut down.
 func (m *Manager) Wait() {

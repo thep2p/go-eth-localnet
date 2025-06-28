@@ -48,7 +48,7 @@ func NewLauncher(logger zerolog.Logger) *Launcher {
 }
 
 // Launch creates, configures, and starts a Geth node with static peers.
-func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*model.Handle, error) {
+func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, error) {
 	// ensure datadir
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("mkdir datadir: %w", err)
@@ -129,5 +129,5 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*model.Handle
 	}
 
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
-	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
+	return stack, nil
 }

@@ -2,8 +2,6 @@ package model
 
 import (
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
@@ -26,52 +24,4 @@ type Config struct {
 	// Mine determines whether this node should produce blocks using the
 	// simulated beacon. Only one node in the network may enable mining.
 	Mine bool
-}
-
-// Handle represents a running Geth node instance.
-type Handle struct {
-	// instance is a reference to the active Geth node instance.
-	instance *node.Node
-	// nodeURL is the enode URL of the Geth node, used for peer discovery.
-	nodeURL string
-	// config holds the configuration details for the Geth node.
-	config Config
-}
-
-// NewHandle initializes and returns a new Handle for a Geth node instance with the provided configuration.
-func NewHandle(instance *node.Node, enodeURL string, config Config) *Handle {
-	return &Handle{
-		instance: instance,
-		nodeURL:  enodeURL,
-		config:   config,
-	}
-}
-
-// Close stops the Geth node instance and releases resources.
-func (h *Handle) Close() error {
-	return h.instance.Close()
-}
-
-// NodeURL returns the enode URL of the Geth node, which is used for peer discovery.
-func (h *Handle) NodeURL() string {
-	return h.nodeURL
-}
-
-// RpcPort returns the port configured for remote procedure calls (RPC) for the Geth node instance.
-// This port is used for interacting with the node via JSON-RPC or other RPC protocols.
-func (h *Handle) RpcPort() int {
-	return h.config.RPCPort
-}
-
-func (h *Handle) Server() *p2p.Server {
-	return h.instance.Server()
-}
-
-// Mining returns true if the node was configured to produce blocks.
-func (h *Handle) Mining() bool {
-	return h.config.Mine
-}
-
-func (h *Handle) Instance() *node.Node {
-	return h.instance
 }

@@ -12,16 +12,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	gethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
-	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 )
 
 // startNode is a helper that launches a single node and waits for RPC readiness.
-func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, context.CancelFunc, *node.Manager, *model.Handle) {
+func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, context.CancelFunc, *node.Manager, *gethnode.Node) {
 	t.Helper()
 
 	tmp := testutils.NewTempDir(t)
@@ -35,21 +35,21 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, contex
 	t.Cleanup(manager.Wait)
 
 	require.NoError(t, manager.Start(ctx, opts...))
-	handle := manager.Handle()
-	require.NotNil(t, handle)
+	gethNode := manager.GethNode()
+	require.NotNil(t, gethNode)
 
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, handle.RpcPort(), 5*time.Second)
+	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), 5*time.Second)
 
-	return ctx, cancel, manager, handle
+	return ctx, cancel, manager, gethNode
 }
 
 // TestClientVersion verifies that the node returns a valid
 // identifier for the `web3_clientVersion` RPC call.
 func TestClientVersion(t *testing.T) {
-	ctx, cancel, _, handle := startNode(t)
+	ctx, cancel, manager, _ := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -61,11 +61,11 @@ func TestClientVersion(t *testing.T) {
 
 // TestBlockProduction ensures that the single node produces blocks when mining.
 func TestBlockProduction(t *testing.T) {
-	ctx, cancel, _, handle := startNode(t)
+	ctx, cancel, manager, _ := startNode(t)
 	defer cancel()
 
 	require.Eventually(t, func() bool {
-		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
 		if err != nil {
 			return false
 		}
@@ -86,10 +86,10 @@ func TestBlockProduction(t *testing.T) {
 
 // TestBlockProductionMonitoring verifies that block numbers advance over time.
 func TestBlockProductionMonitoring(t *testing.T) {
-	ctx, cancel, _, handle := startNode(t)
+	ctx, cancel, manager, _ := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -111,10 +111,10 @@ func TestBlockProductionMonitoring(t *testing.T) {
 // TestPostMergeBlockStructureValidation verifies the structure of blocks post-merge, ensuring
 // PoW-related fields are zero or empty, and block production is functioning correctly.
 func TestPostMergeBlockStructureValidation(t *testing.T) {
-	ctx, cancel, _, handle := startNode(t)
+	ctx, cancel, manager, _ := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -171,6 +171,8 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 
 // TestSimpleETHTransfer validates basic transaction processing.
 func TestSimpleETHTransfer(t *testing.T) {
+	// Creates two accounts with 1 ETH each, sends a transaction from one to the other,
+	// Accounts A and B.
 	aKey := testutils.PrivateKeyFixture(t)
 	aAddr := crypto.PubkeyToAddress(aKey.PublicKey)
 
@@ -179,30 +181,21 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, _, handle := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
+	ctx, cancel, manager, _ := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", handle.RpcPort()))
+	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
-	getBalance := func(addr common.Address) *big.Int {
-		var balHex string
-		require.NoError(t, client.CallContext(ctx, &balHex, "eth_getBalance", addr.Hex(), "latest"))
-		bal, ok := new(big.Int).SetString(strings.TrimPrefix(balHex, "0x"), 16)
-		require.True(t, ok, "invalid balance")
-		return bal
-	}
-
-	balA := getBalance(aAddr)
-	balB := getBalance(bAddr)
+	balA := testutils.GetBalance(t, ctx, client, aAddr)
+	balB := testutils.GetBalance(t, ctx, client, bAddr)
 	require.Equal(t, oneEth, balA)
 	require.Zero(t, balB.Int64())
 
 	var nonceHex string
 	require.NoError(t, client.CallContext(ctx, &nonceHex, "eth_getTransactionCount", aAddr.Hex(), "latest"))
-	nonce, ok := new(big.Int).SetString(strings.TrimPrefix(nonceHex, "0x"), 16)
-	require.True(t, ok)
+	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	value := new(big.Int).Div(oneEth, big.NewInt(10))
 	gasLimit := uint64(21000)
@@ -249,6 +242,6 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	expectedA := new(big.Int).Sub(balA, new(big.Int).Add(value, new(big.Int).Mul(gasUsed, effGasPrice)))
 	expectedB := new(big.Int).Add(balB, value)
-	require.Equal(t, expectedA, getBalance(aAddr))
-	require.Equal(t, expectedB, getBalance(bAddr))
+	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
+	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
 }
