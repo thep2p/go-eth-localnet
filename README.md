@@ -33,6 +33,7 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 - Clean CI, linting, and testability
 - Unique port allocation for reliable tests
 - Explicit temp directory cleanup helpers
+- Customizable genesis allocations via option functions
 
 ## 🛠️ Getting Started
 

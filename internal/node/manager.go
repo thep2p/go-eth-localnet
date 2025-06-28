@@ -40,7 +40,7 @@ func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir strin
 }
 
 // Start launches the single node and waits until its RPC endpoint is reachable.
-func (m *Manager) Start(ctx context.Context) error {
+func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 	ctx, m.cancel = context.WithCancel(ctx)
 
 	priv, err := crypto.GenerateKey()
@@ -57,7 +57,7 @@ func (m *Manager) Start(ctx context.Context) error {
 		Mine:       true,
 	}
 
-	h, err := m.launcher.Launch(cfg)
+	h, err := m.launcher.Launch(cfg, opts...)
 	if err != nil {
 		return fmt.Errorf("launch node: %w", err)
 	}
