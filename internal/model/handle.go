@@ -57,16 +57,6 @@ func (h *Handle) NodeURL() string {
 	return h.nodeURL
 }
 
-// DataDir returns the directory where the Geth node's data is stored.
-func (h *Handle) DataDir() string {
-	return h.config.DataDir
-}
-
-// ID returns the identifier of the Geth node instance.
-func (h *Handle) ID() enode.ID {
-	return h.config.ID
-}
-
 // RpcPort returns the port configured for remote procedure calls (RPC) for the Geth node instance.
 // This port is used for interacting with the node via JSON-RPC or other RPC protocols.
 func (h *Handle) RpcPort() int {
@@ -80,4 +70,8 @@ func (h *Handle) Server() *p2p.Server {
 // Mining returns true if the node was configured to produce blocks.
 func (h *Handle) Mining() bool {
 	return h.config.Mine
+}
+
+func (h *Handle) Instance() *node.Node {
+	return h.instance
 }

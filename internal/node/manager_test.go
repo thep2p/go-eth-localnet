@@ -33,7 +33,7 @@ func startNode(t *testing.T) (context.Context, context.CancelFunc, *node.Manager
 	handle := manager.Handle()
 	require.NotNil(t, handle)
 
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, handle.RpcPort(), 5*time.Second)
+	testutils.RequireRpcReadyWithinTimeout(t, ctx, handle.Instance(), 5*time.Second)
 
 	return ctx, cancel, manager, handle
 }
