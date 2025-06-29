@@ -21,14 +21,21 @@ import (
 )
 
 // startNode is a helper that launches a single node and waits for RPC readiness.
-func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, context.CancelFunc, *node.Manager, *gethnode.Node) {
+func startNode(t *testing.T, opts ...node.LaunchOption) (
+	context.Context,
+	context.CancelFunc,
+	*node.Manager,
+	*gethnode.Node,
+) {
 	t.Helper()
 
 	tmp := testutils.NewTempDir(t)
 	launcher := node.NewLauncher(testutils.Logger(t))
-	manager := node.NewNodeManager(testutils.Logger(t), launcher, tmp.Path(), func() int {
-		return testutils.NewPort(t)
-	})
+	manager := node.NewNodeManager(
+		testutils.Logger(t), launcher, tmp.Path(), func() int {
+			return testutils.NewPort(t)
+		},
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(tmp.Remove)
@@ -64,24 +71,29 @@ func TestBlockProduction(t *testing.T) {
 	ctx, cancel, manager, _ := startNode(t)
 	defer cancel()
 
-	require.Eventually(t, func() bool {
-		client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
-		if err != nil {
-			return false
-		}
-		defer client.Close()
+	require.Eventually(
+		t, func() bool {
+			client, err := rpc.DialContext(
+				ctx,
+				fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()),
+			)
+			if err != nil {
+				return false
+			}
+			defer client.Close()
 
-		var hexNum string
-		if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
-			return false
-		}
+			var hexNum string
+			if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
+				return false
+			}
 
-		num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
-		if !ok {
-			return false
-		}
-		return num.Uint64() >= 3
-	}, 15*time.Second, 500*time.Millisecond, "node failed to produce blocks")
+			num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
+			if !ok {
+				return false
+			}
+			return num.Uint64() >= 3
+		}, 15*time.Second, 500*time.Millisecond, "node failed to produce blocks",
+	)
 }
 
 // TestBlockProductionMonitoring verifies that block numbers advance over time.
@@ -121,12 +133,20 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	// Fetch the latest block to validate its structure
 	// the block map holds the latest block data by its attributes
 	var block map[string]interface{}
-	require.Eventually(t, func() bool {
-		if err := client.CallContext(ctx, &block, "eth_getBlockByNumber", "latest", false); err != nil {
-			return false
-		}
-		return true
-	}, 5*time.Second, 500*time.Millisecond, "could not fetch latest block")
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(
+				ctx,
+				&block,
+				"eth_getBlockByNumber",
+				"latest",
+				false,
+			); err != nil {
+				return false
+			}
+			return true
+		}, 5*time.Second, 500*time.Millisecond, "could not fetch latest block",
+	)
 
 	// Ethereum post-merge transitioned to PoS, so PoW-related fields should be zero or empty.
 	// Difficulty is the computational effort required to mine a block, which is no longer applicable.
@@ -153,19 +173,27 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 
 	// mixHash should change with each new block, so we will fetch the latest block again
 	// to ensure block production is working and mixHash is updated.
-	require.Eventually(t, func() bool {
-		var block2 map[string]interface{}
-		if err := client.CallContext(ctx, &block2, "eth_getBlockByNumber", "latest", false); err != nil {
-			return false
-		}
-		mix2, ok := block2["mixHash"].(string)
-		require.True(t, ok, "mixHash should be a string")
-		require.NotEmpty(t, mix2, "mixHash should not be empty in the latest block")
-		if mix1 == mix2 {
-			return false // mixHash should change with each new block
-		}
-		return true
-	}, 3*time.Second, 500*time.Millisecond, "could not fetch latest block again")
+	require.Eventually(
+		t, func() bool {
+			var block2 map[string]interface{}
+			if err := client.CallContext(
+				ctx,
+				&block2,
+				"eth_getBlockByNumber",
+				"latest",
+				false,
+			); err != nil {
+				return false
+			}
+			mix2, ok := block2["mixHash"].(string)
+			require.True(t, ok, "mixHash should be a string")
+			require.NotEmpty(t, mix2, "mixHash should not be empty in the latest block")
+			if mix1 == mix2 {
+				return false // mixHash should change with each new block
+			}
+			return true
+		}, 3*time.Second, 500*time.Millisecond, "could not fetch latest block again",
+	)
 
 }
 
@@ -194,7 +222,10 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.Zero(t, balB.Int64())
 
 	var nonceHex string
-	require.NoError(t, client.CallContext(ctx, &nonceHex, "eth_getTransactionCount", aAddr.Hex(), "latest"))
+	require.NoError(
+		t,
+		client.CallContext(ctx, &nonceHex, "eth_getTransactionCount", aAddr.Hex(), "latest"),
+	)
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	value := new(big.Int).Div(oneEth, big.NewInt(10))
@@ -202,15 +233,17 @@ func TestSimpleETHTransfer(t *testing.T) {
 	gasTip := big.NewInt(params.GWei)
 	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTip)
 
-	tx := types.NewTx(&types.DynamicFeeTx{
-		ChainID:   big.NewInt(1337),
-		Nonce:     nonce.Uint64(),
-		Gas:       gasLimit,
-		GasTipCap: gasTip,
-		GasFeeCap: gasFeeCap,
-		To:        &bAddr,
-		Value:     value,
-	})
+	tx := types.NewTx(
+		&types.DynamicFeeTx{
+			ChainID:   big.NewInt(1337),
+			Nonce:     nonce.Uint64(),
+			Gas:       gasLimit,
+			GasTipCap: gasTip,
+			GasFeeCap: gasFeeCap,
+			To:        &bAddr,
+			Value:     value,
+		},
+	)
 
 	signer := types.LatestSignerForChainID(big.NewInt(1337))
 	signedTx, err := types.SignTx(tx, signer, aKey)
@@ -220,15 +253,30 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	var txHash common.Hash
-	require.NoError(t, client.CallContext(ctx, &txHash, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes)))
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&txHash,
+			"eth_sendRawTransaction",
+			"0x"+hex.EncodeToString(txBytes),
+		),
+	)
 
 	var receipt map[string]interface{}
-	require.Eventually(t, func() bool {
-		if err := client.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash); err != nil {
-			return false
-		}
-		return receipt != nil && receipt["blockNumber"] != nil
-	}, 5*time.Second, 500*time.Millisecond, "receipt not available")
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(
+				ctx,
+				&receipt,
+				"eth_getTransactionReceipt",
+				txHash,
+			); err != nil {
+				return false
+			}
+			return receipt != nil && receipt["blockNumber"] != nil
+		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
+	)
 
 	require.Equal(t, "0x1", receipt["status"])
 
@@ -240,7 +288,10 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.True(t, ok)
 	effGasPrice, _ := new(big.Int).SetString(strings.TrimPrefix(effGasPriceHex, "0x"), 16)
 
-	expectedA := new(big.Int).Sub(balA, new(big.Int).Add(value, new(big.Int).Mul(gasUsed, effGasPrice)))
+	expectedA := new(big.Int).Sub(
+		balA,
+		new(big.Int).Add(value, new(big.Int).Mul(gasUsed, effGasPrice)),
+	)
 	expectedB := new(big.Int).Add(balB, value)
 	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))

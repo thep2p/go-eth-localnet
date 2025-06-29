@@ -21,12 +21,15 @@ func PrivateKeyFixture(t *testing.T) *ecdsa.PrivateKey {
 }
 
 // GetBalance retrieves the balance of the given address from the Ethereum node.
-func GetBalance(t *testing.T, ctx context.Context, client *rpc.Client, address common.Address) *big.Int {
+func GetBalance(
+	t *testing.T,
+	ctx context.Context,
+	client *rpc.Client,
+	address common.Address,
+) *big.Int {
 	var balHex string
 	require.NoError(t, client.CallContext(ctx, &balHex, "eth_getBalance", address.Hex(), "latest"))
-	bal, ok := new(big.Int).SetString(strings.TrimPrefix(balHex, "0x"), 16)
-	require.True(t, ok, "invalid balance format: %s", balHex)
-	return bal
+	return HexToBigInt(t, balHex)
 }
 
 func HexToBigInt(t *testing.T, hexStr string) *big.Int {
