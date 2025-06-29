@@ -229,12 +229,13 @@ func TestSimpleETHTransfer(t *testing.T) {
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	value := new(big.Int).Div(oneEth, big.NewInt(10))
-	gasLimit := uint64(21000)
+	gasLimit := uint64(21000) // Standard gas limit for ETH transfer transactions
 	gasTip := big.NewInt(params.GWei)
 	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTip)
 
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
+			// Identify the chain ID for the transaction (1337 is a common local testnet ID)
 			ChainID:   big.NewInt(1337),
 			Nonce:     nonce.Uint64(),
 			Gas:       gasLimit,
