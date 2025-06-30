@@ -41,10 +41,7 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 		func() {
 			// ensure the node is stopped and cleaned up within a timeout
 			testutils.RequireCallMustReturnWithinTimeout(
-				t,
-				manager.Done,
-				5*time.Second,
-				"node shutdown failed",
+				t, manager.Done, 5*time.Second, "node shutdown failed",
 			)
 		},
 	)
@@ -141,11 +138,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	require.Eventually(
 		t, func() bool {
 			if err := client.CallContext(
-				ctx,
-				&block,
-				"eth_getBlockByNumber",
-				"latest",
-				false,
+				ctx, &block, "eth_getBlockByNumber", "latest", false,
 			); err != nil {
 				return false
 			}
@@ -181,11 +174,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 		t, func() bool {
 			var block2 map[string]interface{}
 			if err := client.CallContext(
-				ctx,
-				&block2,
-				"eth_getBlockByNumber",
-				"latest",
-				false,
+				ctx, &block2, "eth_getBlockByNumber", "latest", false,
 			); err != nil {
 				return false
 			}
