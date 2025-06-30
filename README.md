@@ -39,7 +39,19 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 ```bash
 git clone https://github.com/yourusername/go-eth-localnet
 cd go-eth-localnet
-go run main.go
+```
+
+```go
+logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
+launcher := node.NewLauncher(logger)
+manager := node.NewNodeManager(logger, launcher, "./datadir", testutils.NewPort)
+ctx := context.Background()
+if err := manager.Start(ctx); err != nil {
+    log.Fatal(err)
+}
+defer manager.Wait()
+
+fmt.Println("RPC listening on", manager.Handle().RpcPort())
 ```
 
 ## 🗺️ Roadmap
