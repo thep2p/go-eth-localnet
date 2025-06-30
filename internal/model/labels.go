@@ -39,4 +39,7 @@ const (
 
 	// EthSendRawTransaction represents the method for sending a raw transaction to the network.
 	EthSendRawTransaction = "eth_sendRawTransaction"
+
+	// EthWeb3ClientVersion represents the method for retrieving the client version.
+	EthWeb3ClientVersion = "web3_clientVersion"
 )

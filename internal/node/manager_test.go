@@ -2,7 +2,6 @@ package node_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/utils"
 	"math/big"
@@ -62,12 +61,12 @@ func TestClientVersion(t *testing.T) {
 	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
 	var ver string
-	require.NoError(t, client.CallContext(ctx, &ver, "web3_clientVersion"))
+	require.NoError(t, client.CallContext(ctx, &ver, model.EthWeb3ClientVersion))
 	require.NotEmpty(t, ver)
 	require.Contains(t, ver, "/")
 }
@@ -79,10 +78,7 @@ func TestBlockProduction(t *testing.T) {
 
 	require.Eventually(
 		t, func() bool {
-			client, err := rpc.DialContext(
-				ctx,
-				fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()),
-			)
+			client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 			if err != nil {
 				return false
 			}
@@ -104,7 +100,7 @@ func TestBlockProductionMonitoring(t *testing.T) {
 	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -129,7 +125,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
@@ -206,7 +202,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 	ctx, cancel, manager := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
 	defer cancel()
 
-	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 	require.NoError(t, err)
 	defer client.Close()
 
