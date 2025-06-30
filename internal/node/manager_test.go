@@ -2,8 +2,9 @@ package node_test
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
+	"github.com/thep2p/go-eth-localnet/internal/model"
+	"github.com/thep2p/go-eth-localnet/internal/utils"
 	"math/big"
 	"strings"
 	"testing"
@@ -88,7 +89,7 @@ func TestBlockProduction(t *testing.T) {
 			defer client.Close()
 
 			var hexNum string
-			if err := client.CallContext(ctx, &hexNum, "eth_blockNumber"); err != nil {
+			if err := client.CallContext(ctx, &hexNum, model.EthBlockNumber); err != nil {
 				return false
 			}
 
@@ -108,14 +109,14 @@ func TestBlockProductionMonitoring(t *testing.T) {
 	defer client.Close()
 
 	var hex1 string
-	require.NoError(t, client.CallContext(ctx, &hex1, "eth_blockNumber"))
+	require.NoError(t, client.CallContext(ctx, &hex1, model.EthBlockNumber))
 	n1 := testutils.HexToBigInt(t, hex1)
 
 	// Eventually the block number should increase, indicating that the node is producing blocks.
 	require.Eventually(
 		t, func() bool {
 			var hex2 string
-			require.NoError(t, client.CallContext(ctx, &hex2, "eth_blockNumber"))
+			require.NoError(t, client.CallContext(ctx, &hex2, model.EthBlockNumber))
 			n2 := testutils.HexToBigInt(t, hex2)
 			return n2.Uint64() > n1.Uint64()
 		}, 5*time.Second, 500*time.Millisecond, "block number did not increase",
@@ -138,7 +139,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	require.Eventually(
 		t, func() bool {
 			if err := client.CallContext(
-				ctx, &block, "eth_getBlockByNumber", "latest", false,
+				ctx, &block, model.EthGetBlockByNumber, model.EthLatestBlock, false,
 			); err != nil {
 				return false
 			}
@@ -148,13 +149,13 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 
 	// Ethereum post-merge transitioned to PoS, so PoW-related fields should be zero or empty.
 	// Difficulty is the computational effort required to mine a block, which is no longer applicable.
-	diffStr, ok := block["difficulty"].(string)
+	diffStr, ok := block[model.BlockDifficulty].(string)
 	require.True(t, ok)
 	require.Equal(t, "0x0", strings.ToLower(diffStr), "difficulty should be zero post-merge")
 
 	// Total difficulty is the cumulative difficulty of all blocks up to this point, which should also be zero for the first block.
 	// If totalDifficulty is not set, it defaults to "0x0".
-	tdStr, _ := block["totalDifficulty"].(string)
+	tdStr, _ := block[model.BlockTotalDifficulty].(string)
 	if tdStr == "" {
 		tdStr = "0x0"
 	}
@@ -164,7 +165,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 
 	// Post-merge, mixHash represents commitment to the randomness in block proposal.
 	// It should be a non-empty string.
-	mix1, ok := block["mixHash"].(string)
+	mix1, ok := block[model.BlockMixHash].(string)
 	require.True(t, ok)
 	require.NotEmpty(t, mix1)
 
@@ -174,11 +175,11 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 		t, func() bool {
 			var block2 map[string]interface{}
 			if err := client.CallContext(
-				ctx, &block2, "eth_getBlockByNumber", "latest", false,
+				ctx, &block2, model.EthGetBlockByNumber, model.EthLatestBlock, false,
 			); err != nil {
 				return false
 			}
-			mix2, ok := block2["mixHash"].(string)
+			mix2, ok := block2[model.BlockMixHash].(string)
 			require.True(t, ok, "mixHash should be a string")
 			require.NotEmpty(t, mix2, "mixHash should not be empty in the latest block")
 			if mix1 == mix2 {
@@ -217,7 +218,13 @@ func TestSimpleETHTransfer(t *testing.T) {
 	var nonceHex string
 	require.NoError(
 		t,
-		client.CallContext(ctx, &nonceHex, "eth_getTransactionCount", aAddr.Hex(), "latest"),
+		client.CallContext(
+			ctx,
+			&nonceHex,
+			model.EthGetTransactionCount,
+			aAddr.Hex(),
+			model.EthLatestBlock,
+		),
 	)
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
@@ -254,9 +261,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 	var txHash common.Hash
 	require.NoError(
 		t,
-		client.CallContext(
-			ctx, &txHash, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes),
-		),
+		client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)),
 	)
 
 	// Verify that eventually the transaction is included in a block, executed, and the balances are updated.
@@ -264,21 +269,21 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.Eventually(
 		t, func() bool {
 			if err := client.CallContext(
-				ctx, &receipt, "eth_getTransactionReceipt", txHash,
+				ctx, &receipt, model.EthGetTransactionReceipt, txHash,
 			); err != nil {
 				return false
 			}
-			return receipt != nil && receipt["blockNumber"] != nil
+			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
 		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
 	)
 
-	require.Equal(t, "0x1", receipt["status"])
+	require.Equal(t, "0x1", receipt[model.ReceiptStatus])
 
-	gasUsedHex, ok := receipt["gasUsed"].(string)
+	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
 	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
 
-	effGasPriceHex, ok := receipt["effectiveGasPrice"].(string)
+	effGasPriceHex, ok := receipt[model.ReceiptEffectiveGasPrice].(string)
 	require.True(t, ok)
 	effGasPrice := testutils.HexToBigInt(t, effGasPriceHex)
 
