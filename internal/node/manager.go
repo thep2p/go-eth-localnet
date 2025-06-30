@@ -5,6 +5,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"path/filepath"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
+// localNetChainID represents the chain ID for a local Ethereum network (1337).
+const localNetChainID = 1337
+
 // Manager starts and stops a single Geth node backed by a simulated beacon.
 // It exposes the running node and waits for shutdown.
 type Manager struct {
@@ -23,6 +27,7 @@ type Manager struct {
 	baseDataDir  string
 	launcher     *Launcher
 	portAssigner func() int
+	chainID      *big.Int
 
 	gethNode *gethnode.Node
 	cfg      model.Config
@@ -31,13 +36,18 @@ type Manager struct {
 }
 
 // NewNodeManager constructs a Manager that will launch one node.
-func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner func() int) *Manager {
+func NewNodeManager(
+	logger zerolog.Logger,
+	launcher *Launcher,
+	baseDataDir string,
+	portAssigner func() int) *Manager {
 	return &Manager{
 		logger:       logger.With().Str("component", "node-manager").Logger(),
 		baseDataDir:  baseDataDir,
 		launcher:     launcher,
 		portAssigner: portAssigner,
 		shutdown:     make(chan struct{}),
+		chainID:      big.NewInt(localNetChainID),
 	}
 }
 
@@ -84,7 +94,9 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 
 	go func() {
 		<-ctx.Done()
-		_ = n.Close()
+		if err := n.Close(); err != nil {
+			m.logger.Fatal().Err(err).Msg("failed to close geth node")
+		}
 		close(m.shutdown)
 	}()
 
@@ -94,13 +106,15 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 // GethNode returns the running node instance or nil if the node is not started.
 func (m *Manager) GethNode() *gethnode.Node { return m.gethNode }
 
+func (m *Manager) ChainID() *big.Int {
+	return m.chainID
+}
+
 // RPCPort returns the RPC port the node is using.
 func (m *Manager) RPCPort() int { return m.cfg.RPCPort }
 
-// Wait blocks until the node has shut down.
-func (m *Manager) Wait() {
-	if m.cancel != nil {
-		m.cancel()
-	}
+// Done waits for the shutdown signal and ensures any cleanup is completed.
+// It can be used in tests to ensure the node has stopped before proceeding.
+func (m *Manager) Done() {
 	<-m.shutdown
 }

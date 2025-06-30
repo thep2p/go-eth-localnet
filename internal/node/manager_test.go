@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	gethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
@@ -20,13 +19,12 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 )
 
-// startNode is a helper that launches a single node and waits for RPC readiness.
+// startNode initializes and starts a single Geth node for testing with given options.
+// It sets up a temporary directory, a node manager, and ensures RPC readiness before returning.
 func startNode(t *testing.T, opts ...node.LaunchOption) (
 	context.Context,
 	context.CancelFunc,
-	*node.Manager,
-	*gethnode.Node,
-) {
+	*node.Manager) {
 	t.Helper()
 
 	tmp := testutils.NewTempDir(t)
@@ -39,7 +37,17 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(tmp.Remove)
-	t.Cleanup(manager.Wait)
+	t.Cleanup(
+		func() {
+			// ensure the node is stopped and cleaned up within a timeout
+			testutils.RequireCallMustReturnWithinTimeout(
+				t,
+				manager.Done,
+				5*time.Second,
+				"node shutdown failed",
+			)
+		},
+	)
 
 	require.NoError(t, manager.Start(ctx, opts...))
 	gethNode := manager.GethNode()
@@ -47,13 +55,13 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 
 	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), 5*time.Second)
 
-	return ctx, cancel, manager, gethNode
+	return ctx, cancel, manager
 }
 
 // TestClientVersion verifies that the node returns a valid
 // identifier for the `web3_clientVersion` RPC call.
 func TestClientVersion(t *testing.T) {
-	ctx, cancel, manager, _ := startNode(t)
+	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
@@ -68,7 +76,7 @@ func TestClientVersion(t *testing.T) {
 
 // TestBlockProduction ensures that the single node produces blocks when mining.
 func TestBlockProduction(t *testing.T) {
-	ctx, cancel, manager, _ := startNode(t)
+	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
 	require.Eventually(
@@ -87,10 +95,7 @@ func TestBlockProduction(t *testing.T) {
 				return false
 			}
 
-			num, ok := new(big.Int).SetString(strings.TrimPrefix(hexNum, "0x"), 16)
-			if !ok {
-				return false
-			}
+			num := testutils.HexToBigInt(t, hexNum)
 			return num.Uint64() >= 3
 		}, 15*time.Second, 500*time.Millisecond, "node failed to produce blocks",
 	)
@@ -98,7 +103,7 @@ func TestBlockProduction(t *testing.T) {
 
 // TestBlockProductionMonitoring verifies that block numbers advance over time.
 func TestBlockProductionMonitoring(t *testing.T) {
-	ctx, cancel, manager, _ := startNode(t)
+	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
@@ -107,23 +112,23 @@ func TestBlockProductionMonitoring(t *testing.T) {
 
 	var hex1 string
 	require.NoError(t, client.CallContext(ctx, &hex1, "eth_blockNumber"))
-	n1, ok := new(big.Int).SetString(strings.TrimPrefix(hex1, "0x"), 16)
-	require.True(t, ok, "invalid block number")
+	n1 := testutils.HexToBigInt(t, hex1)
 
-	time.Sleep(5 * time.Second)
-
-	var hex2 string
-	require.NoError(t, client.CallContext(ctx, &hex2, "eth_blockNumber"))
-	n2, ok := new(big.Int).SetString(strings.TrimPrefix(hex2, "0x"), 16)
-	require.True(t, ok, "invalid block number")
-
-	require.Greater(t, n2.Uint64(), n1.Uint64(), "block number did not increase")
+	// Eventually the block number should increase, indicating that the node is producing blocks.
+	require.Eventually(
+		t, func() bool {
+			var hex2 string
+			require.NoError(t, client.CallContext(ctx, &hex2, "eth_blockNumber"))
+			n2 := testutils.HexToBigInt(t, hex2)
+			return n2.Uint64() > n1.Uint64()
+		}, 5*time.Second, 500*time.Millisecond, "block number did not increase",
+	)
 }
 
 // TestPostMergeBlockStructureValidation verifies the structure of blocks post-merge, ensuring
 // PoW-related fields are zero or empty, and block production is functioning correctly.
 func TestPostMergeBlockStructureValidation(t *testing.T) {
-	ctx, cancel, manager, _ := startNode(t)
+	ctx, cancel, manager := startNode(t)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
@@ -161,8 +166,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 		tdStr = "0x0"
 	}
 	// Convert the total difficulty string to a big.Int for validation.
-	td, ok := new(big.Int).SetString(strings.TrimPrefix(tdStr, "0x"), 16)
-	require.True(t, ok)
+	td := testutils.HexToBigInt(t, tdStr)
 	require.Zero(t, td.Int64())
 
 	// Post-merge, mixHash represents commitment to the randomness in block proposal.
@@ -209,7 +213,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, manager, _ := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
+	ctx, cancel, manager := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))
@@ -229,49 +233,49 @@ func TestSimpleETHTransfer(t *testing.T) {
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	value := new(big.Int).Div(oneEth, big.NewInt(10))
-	gasLimit := uint64(21000) // Standard gas limit for ETH transfer transactions
-	gasTip := big.NewInt(params.GWei)
-	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTip)
+	gasLimit := uint64(21000)            // Standard gas limit for ETH transfer transactions
+	gasTipCap := big.NewInt(params.GWei) // Max tip we are willing to pay for the transaction
+	// Max fee cap is set to 2x the tip cap, which is a common practice
+	// to ensure the transaction is processed quickly.
+	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
 
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
 			// Identify the chain ID for the transaction (1337 is a common local testnet ID)
-			ChainID:   big.NewInt(1337),
+			ChainID:   manager.ChainID(),
 			Nonce:     nonce.Uint64(),
 			Gas:       gasLimit,
-			GasTipCap: gasTip,
+			GasTipCap: gasTipCap,
 			GasFeeCap: gasFeeCap,
 			To:        &bAddr,
 			Value:     value,
 		},
 	)
 
-	signer := types.LatestSignerForChainID(big.NewInt(1337))
+	// Sign the transaction with the private key of account A
+	signer := types.LatestSignerForChainID(manager.ChainID())
 	signedTx, err := types.SignTx(tx, signer, aKey)
 	require.NoError(t, err)
 
+	// Marshal the signed transaction to binary format
 	txBytes, err := signedTx.MarshalBinary()
 	require.NoError(t, err)
 
+	// Send the signed transaction to the node and get the transaction hash
 	var txHash common.Hash
 	require.NoError(
 		t,
 		client.CallContext(
-			ctx,
-			&txHash,
-			"eth_sendRawTransaction",
-			"0x"+hex.EncodeToString(txBytes),
+			ctx, &txHash, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes),
 		),
 	)
 
+	// Verify that eventually the transaction is included in a block, executed, and the balances are updated.
 	var receipt map[string]interface{}
 	require.Eventually(
 		t, func() bool {
 			if err := client.CallContext(
-				ctx,
-				&receipt,
-				"eth_getTransactionReceipt",
-				txHash,
+				ctx, &receipt, "eth_getTransactionReceipt", txHash,
 			); err != nil {
 				return false
 			}
@@ -283,16 +287,18 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	gasUsedHex, ok := receipt["gasUsed"].(string)
 	require.True(t, ok)
-	gasUsed, _ := new(big.Int).SetString(strings.TrimPrefix(gasUsedHex, "0x"), 16)
+	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
 
 	effGasPriceHex, ok := receipt["effectiveGasPrice"].(string)
 	require.True(t, ok)
-	effGasPrice, _ := new(big.Int).SetString(strings.TrimPrefix(effGasPriceHex, "0x"), 16)
+	effGasPrice := testutils.HexToBigInt(t, effGasPriceHex)
 
+	// Balance of account A should decrease by the value sent plus the gas used times the effective gas price.
 	expectedA := new(big.Int).Sub(
 		balA,
 		new(big.Int).Add(value, new(big.Int).Mul(gasUsed, effGasPrice)),
 	)
+	// Balance of account B should increase by the value sent.
 	expectedB := new(big.Int).Add(balB, value)
 	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
