@@ -24,7 +24,7 @@ type Config struct {
 	StaticNodes []string // enode URLs of peers
 
 	// Mine determines whether this node should produce blocks using the
-	// simulated beacon. Only one node in the network may enable mining.
+	// simulated beacon.  
 	Mine bool
 }
 

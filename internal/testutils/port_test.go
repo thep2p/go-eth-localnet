@@ -2,7 +2,7 @@ package testutils
 
 import "testing"
 
-// TestPortAssigner_UniqueAcrossInstances ensures ports are unique across assigners.
+// TestNewPort_UniqueAcrossCalls ensures ports are unique across calls.
 func TestNewPort_UniqueAcrossCalls(t *testing.T) {
 	p1 := NewPort(t)
 	p2 := NewPort(t)
