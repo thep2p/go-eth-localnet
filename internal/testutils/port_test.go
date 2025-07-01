@@ -1,6 +1,9 @@
 package testutils
 
-import "testing"
+import (
+	"github.com/stretchr/testify/require"
+	"testing"
+)
 
 // TestNewPort_UniqueAcrossCalls ensures ports are unique across calls.
 func TestNewPort_UniqueAcrossCalls(t *testing.T) {
