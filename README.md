@@ -37,7 +37,7 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 ## 🛠️ Getting Started
 
 ```bash
-git clone https://github.com/yourusername/go-eth-localnet
+git clone https://github.com/thep2p/go-eth-localnet
 cd go-eth-localnet
 ```
 
