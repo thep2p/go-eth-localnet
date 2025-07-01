@@ -81,7 +81,9 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 	for {
 		if time.Now().After(deadline) {
 			_ = n.Close()
-			close(m.shutdown)
+			m.once.Do(func() {
+				close(m.shutdown)
+			})
 			return fmt.Errorf("rpc %q never came up", rpcURL)
 		}
 		client, err := rpc.DialContext(ctx, rpcURL)
