@@ -3,14 +3,17 @@ package testutils
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"sync"
 	"testing"
 	"time"
 )
 
 // RequireCallMustReturnWithinTimeout is a test helper that invokes the given function and fails the test if the invocation
 // does not return prior to the given timeout.
-func RequireCallMustReturnWithinTimeout(t *testing.T, f func(), timeout time.Duration, failureMsg string) {
+func RequireCallMustReturnWithinTimeout(
+	t *testing.T,
+	f func(),
+	timeout time.Duration,
+	failureMsg string) {
 	done := make(chan interface{})
 
 	go func() {
@@ -19,11 +22,20 @@ func RequireCallMustReturnWithinTimeout(t *testing.T, f func(), timeout time.Dur
 		close(done)
 	}()
 
-	ChannelMustCloseWithinTimeout(t, done, timeout, fmt.Sprintf("function did not return on time: %s", failureMsg))
+	ChannelMustCloseWithinTimeout(
+		t,
+		done,
+		timeout,
+		fmt.Sprintf("function did not return on time: %s", failureMsg),
+	)
 }
 
 // ChannelMustCloseWithinTimeout is a test helper that fails the test if the channel does not close prior to the given timeout.
-func ChannelMustCloseWithinTimeout(t *testing.T, c <-chan interface{}, timeout time.Duration, failureMsg string) {
+func ChannelMustCloseWithinTimeout(
+	t *testing.T,
+	c <-chan interface{},
+	timeout time.Duration,
+	failureMsg string) {
 	select {
 	case <-c:
 		return

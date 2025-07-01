@@ -96,6 +96,10 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 	}
 	ethService, err := eth.New(stack, ethCfg)
 	if err != nil {
+		// Creates a genesis block for a development network.
+		// Setting the gas limit to 30 million which is typical for Ethereum blocks.
+		// Network Ids are used to differentiate between different Ethereum networks.
+		// The mainnet uses 1, and private networks often use 1337.
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
 

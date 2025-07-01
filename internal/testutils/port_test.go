@@ -1,12 +1,13 @@
 package testutils
 
-import "testing"
+import (
+	"github.com/stretchr/testify/require"
+	"testing"
+)
 
-// TestPortAssigner_UniqueAcrossInstances ensures ports are unique across assigners.
+// TestNewPort_UniqueAcrossCalls ensures ports are unique across calls.
 func TestNewPort_UniqueAcrossCalls(t *testing.T) {
 	p1 := NewPort(t)
 	p2 := NewPort(t)
-	if p1 == p2 {
-		t.Fatalf("expected different ports, got %d", p1)
-	}
+	require.NotEqual(t, p1, p2, "expected different ports, but got the same: %d", p1)
 }

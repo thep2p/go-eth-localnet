@@ -23,10 +23,10 @@ const localNetChainID = 1337
 // Manager starts and stops a single Geth node backed by a simulated beacon.
 // It exposes the running node and waits for shutdown.
 type Manager struct {
-	logger       zerolog.Logger
-	baseDataDir  string
-	launcher     *Launcher
-	portAssigner func() int
+	logger        zerolog.Logger
+	baseDataDir   string
+	launcher      *Launcher
+	assignNewPort func() int
 	chainID      *big.Int
 
 	gethNode *gethnode.Node
@@ -40,7 +40,7 @@ func NewNodeManager(
 	logger zerolog.Logger,
 	launcher *Launcher,
 	baseDataDir string,
-	portAssigner func() int) *Manager {
+	assignNewPort func() int) *Manager {
 	return &Manager{
 		logger:       logger.With().Str("component", "node-manager").Logger(),
 		baseDataDir:  baseDataDir,
