@@ -66,9 +66,13 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
 	ethCfg := &ethconfig.Config{
+		// Network Ids are used to differentiate between different Ethereum networks.
+		// The mainnet uses 1, and private networks often use 1337.
 		NetworkId: 1337,
-		Genesis:   core.DeveloperGenesisBlock(11500000, nil),
-		SyncMode:  ethconfig.FullSync,
+		// Creates a genesis block for a development network.
+		// Setting the gas limit to 30 million which is typical for Ethereum blocks.
+		Genesis:  core.DeveloperGenesisBlock(30_000_000, nil),
+		SyncMode: ethconfig.FullSync,
 	}
 	ethService, err := eth.New(stack, ethCfg)
 	if err != nil {
@@ -104,6 +108,9 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		ethService.SetSynced()
 	}
 
-	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
+	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str(
+		"id",
+		cfg.ID.String(),
+	).Msg("Node started")
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
 }
