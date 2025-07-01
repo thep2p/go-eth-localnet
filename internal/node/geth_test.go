@@ -30,15 +30,15 @@ func TestSingleNodeLaunch(t *testing.T) {
 	}
 
 	launcher := node.NewLauncher(logger)
-	handle, err := launcher.Launch(cfg)
+	gethNode, err := launcher.Launch(cfg)
 	require.NoError(t, err)
-	require.NotNil(t, handle)
-	require.Contains(t, handle.NodeURL(), "enode://")
+	require.NotNil(t, gethNode)
+	require.Contains(t, gethNode.Server().NodeInfo().Enode, "enode://")
 
 	defer func() {
 		testutils.RequireCallMustReturnWithinTimeout(
 			t, func() {
-				err := handle.Close()
+				err := gethNode.Close()
 				if err != nil {
 					logger.Fatal().Err(err).Msg("failed to close node")
 				}
