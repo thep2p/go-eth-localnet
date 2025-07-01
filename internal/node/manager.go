@@ -18,10 +18,10 @@ import (
 // Manager starts and stops a single Geth node backed by a simulated beacon.
 // It exposes the running node via Handle and waits for shutdown.
 type Manager struct {
-	logger       zerolog.Logger
-	baseDataDir  string
-	launcher     *Launcher
-	portAssigner func() int
+	logger        zerolog.Logger
+	baseDataDir   string
+	launcher      *Launcher
+	assignNewPort func() int
 
 	handle   *model.Handle
 	shutdown chan struct{}
@@ -29,13 +29,17 @@ type Manager struct {
 }
 
 // NewNodeManager constructs a Manager that will launch one node.
-func NewNodeManager(logger zerolog.Logger, launcher *Launcher, baseDataDir string, portAssigner func() int) *Manager {
+func NewNodeManager(
+	logger zerolog.Logger,
+	launcher *Launcher,
+	baseDataDir string,
+	assignNewPort func() int) *Manager {
 	return &Manager{
-		logger:       logger.With().Str("component", "node-manager").Logger(),
-		baseDataDir:  baseDataDir,
-		launcher:     launcher,
-		portAssigner: portAssigner,
-		shutdown:     make(chan struct{}),
+		logger:        logger.With().Str("component", "node-manager").Logger(),
+		baseDataDir:   baseDataDir,
+		launcher:      launcher,
+		assignNewPort: assignNewPort,
+		shutdown:      make(chan struct{}),
 	}
 }
 
@@ -51,8 +55,8 @@ func (m *Manager) Start(ctx context.Context) error {
 	cfg := model.Config{
 		ID:         enode.PubkeyToIDV4(&priv.PublicKey),
 		DataDir:    filepath.Join(m.baseDataDir, "node0"),
-		P2PPort:    m.portAssigner(),
-		RPCPort:    m.portAssigner(),
+		P2PPort:    m.assignNewPort(),
+		RPCPort:    m.assignNewPort(),
 		PrivateKey: priv,
 		Mine:       true,
 	}
