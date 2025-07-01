@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -34,7 +33,6 @@ type Manager struct {
 	cfg      model.Config
 	shutdown chan struct{}
 	cancel   context.CancelFunc
-	once     sync.Once
 }
 
 // NewNodeManager constructs a Manager that will launch one node.
@@ -83,11 +81,9 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 	for {
 		if time.Now().After(deadline) {
 			_ = n.Close()
-			m.once.Do(
-				func() {
-					close(m.shutdown)
-				},
-			)
+			m.once.Do(func() {
+				close(m.shutdown)
+			})
 			return fmt.Errorf("rpc %q never came up", rpcURL)
 		}
 		client, err := rpc.DialContext(ctx, rpcURL)
