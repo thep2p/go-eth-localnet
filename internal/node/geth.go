@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -13,9 +16,10 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
-// Launcher provides methods to initialize and manage Geth node instances. It uses a logger for operational logging.
+// Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
 type Launcher struct {
-	logger zerolog.Logger
+	logger       zerolog.Logger
+	minerStarted bool
 }
 
 // NewLauncher returns a Launcher.
@@ -61,13 +65,52 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
-	if _, err := eth.New(stack, &ethconfig.Config{NetworkId: 1337}); err != nil {
+	ethCfg := &ethconfig.Config{
+		// Network Ids are used to differentiate between different Ethereum networks.
+		// The mainnet uses 1, and private networks often use 1337.
+		NetworkId: 1337,
+		// Creates a genesis block for a development network.
+		// Setting the gas limit to 30 million which is typical for Ethereum blocks.
+		Genesis:  core.DeveloperGenesisBlock(30_000_000, nil),
+		SyncMode: ethconfig.FullSync,
+	}
+	ethService, err := eth.New(stack, ethCfg)
+	if err != nil {
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
+
+	var (
+		simBeacon *catalyst.SimulatedBeacon
+		beaconErr error
+	)
+	if cfg.Mine {
+		if l.minerStarted {
+			l.logger.Fatal().Msg("multiple miners are not supported")
+		}
+		l.minerStarted = true
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
+	} else {
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, common.Address{}, ethService)
+	}
+	if beaconErr != nil {
+		return nil, fmt.Errorf("simulated beacon: %w", beaconErr)
+	}
+	catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
+	if err := catalyst.Register(stack, ethService); err != nil {
+		return nil, fmt.Errorf("register catalyst: %w", err)
+	}
+	stack.RegisterLifecycle(simBeacon)
 	if err := stack.Start(); err != nil {
 		return nil, fmt.Errorf("start node: %w", err)
 	}
 
-	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str("id", cfg.ID.String()).Msg("Node started")
+	if cfg.Mine {
+		ethService.SetSynced()
+	}
+
+	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str(
+		"id",
+		cfg.ID.String(),
+	).Msg("Node started")
 	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
 }

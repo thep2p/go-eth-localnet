@@ -22,6 +22,11 @@ type Config struct {
 	PrivateKey *ecdsa.PrivateKey
 
 	StaticNodes []string // enode URLs of peers
+
+	// Mine determines whether this node should produce blocks using the
+	// simulated beacon. A value of true indicates that the node is configured to produce blocks,
+	// while false means it will only participate in the network as a regular follower node.
+	Mine bool
 }
 
 // Handle represents a running Geth node instance.
@@ -71,4 +76,9 @@ func (h *Handle) RpcPort() int {
 
 func (h *Handle) Server() *p2p.Server {
 	return h.instance.Server()
+}
+
+// Mining returns true if the node was configured to produce blocks.
+func (h *Handle) Mining() bool {
+	return h.config.Mine
 }
