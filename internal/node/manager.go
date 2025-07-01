@@ -27,7 +27,7 @@ type Manager struct {
 	baseDataDir   string
 	launcher      *Launcher
 	assignNewPort func() int
-	chainID      *big.Int
+	chainID       *big.Int
 
 	gethNode *gethnode.Node
 	cfg      model.Config
@@ -42,12 +42,12 @@ func NewNodeManager(
 	baseDataDir string,
 	assignNewPort func() int) *Manager {
 	return &Manager{
-		logger:       logger.With().Str("component", "node-manager").Logger(),
-		baseDataDir:  baseDataDir,
-		launcher:     launcher,
-		portAssigner: portAssigner,
-		shutdown:     make(chan struct{}),
-		chainID:      big.NewInt(localNetChainID),
+		logger:        logger.With().Str("component", "node-manager").Logger(),
+		baseDataDir:   baseDataDir,
+		launcher:      launcher,
+		assignNewPort: assignNewPort,
+		shutdown:      make(chan struct{}),
+		chainID:       big.NewInt(localNetChainID),
 	}
 }
 
@@ -63,8 +63,8 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 	cfg := model.Config{
 		ID:         enode.PubkeyToIDV4(&priv.PublicKey),
 		DataDir:    filepath.Join(m.baseDataDir, "node0"),
-		P2PPort:    m.portAssigner(),
-		RPCPort:    m.portAssigner(),
+		P2PPort:    m.assignNewPort(),
+		RPCPort:    m.assignNewPort(),
 		PrivateKey: priv,
 		Mine:       true,
 	}
