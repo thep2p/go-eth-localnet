@@ -6,7 +6,5 @@ import "testing"
 func TestNewPort_UniqueAcrossCalls(t *testing.T) {
 	p1 := NewPort(t)
 	p2 := NewPort(t)
-	if p1 == p2 {
-		t.Fatalf("expected different ports, got %d", p1)
-	}
+	require.NotEqual(t, p1, p2, "expected different ports, but got the same: %d", p1)
 }
