@@ -38,7 +38,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 	defer func() {
 		testutils.RequireCallMustReturnWithinTimeout(
 			t, func() {
-				err := handle.Close()
+				err := gethNode.Close()
 				if err != nil {
 					logger.Fatal().Err(err).Msg("failed to close node")
 				}
