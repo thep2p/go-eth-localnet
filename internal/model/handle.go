@@ -24,7 +24,8 @@ type Config struct {
 	StaticNodes []string // enode URLs of peers
 
 	// Mine determines whether this node should produce blocks using the
-	// simulated beacon.
+	// simulated beacon. A value of true indicates that the node is configured to produce blocks,
+	// while false means it will only participate in the network as a regular follower node.
 	Mine bool
 }
 
