@@ -293,3 +293,81 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
 }
+
+// TestRevertingTransaction ensures that a transaction which reverts
+// returns a failed receipt and still consumes gas.
+func TestRevertingTransaction(t *testing.T) {
+	key := testutils.PrivateKeyFixture(t)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
+
+	ctx, cancel, manager := startNode(t, node.WithGenesisAccount(addr, oneEth))
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	var nonceHex string
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&nonceHex,
+			model.EthGetTransactionCount,
+			addr.Hex(),
+			model.EthLatestBlock,
+		),
+	)
+	nonce := testutils.HexToBigInt(t, nonceHex)
+
+	gasLimit := uint64(100000)
+	gasTipCap := big.NewInt(params.GWei)
+	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
+
+	tx := types.NewTx(
+		&types.DynamicFeeTx{
+			ChainID:   manager.ChainID(),
+			Nonce:     nonce.Uint64(),
+			Gas:       gasLimit,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			To:        nil,
+			Value:     big.NewInt(0),
+			Data:      common.Hex2Bytes("60006000fd"),
+		},
+	)
+
+	signer := types.LatestSignerForChainID(manager.ChainID())
+	signedTx, err := types.SignTx(tx, signer, key)
+	require.NoError(t, err)
+
+	txBytes, err := signedTx.MarshalBinary()
+	require.NoError(t, err)
+
+	var txHash common.Hash
+	require.NoError(
+		t,
+		client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)),
+	)
+
+	var receipt map[string]interface{}
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(
+				ctx, &receipt, model.EthGetTransactionReceipt, txHash,
+			); err != nil {
+				return false
+			}
+			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
+		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
+	)
+
+	require.Equal(t, "0x0", receipt[model.ReceiptStatus])
+
+	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
+	require.True(t, ok)
+	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
+	require.NotZero(t, gasUsed.Uint64())
+}
