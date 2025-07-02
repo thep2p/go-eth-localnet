@@ -14,7 +14,7 @@ func CompileFromStr(contractSource string) (
 	contractBin string,
 	contractABI string,
 	err error) {
-	
+
 	// A temporary contract name for the compilation output
 	contractName := "TempContract"
 
@@ -52,7 +52,7 @@ func CompileFromStr(contractSource string) (
 		return "", "", fmt.Errorf("unmarshal solc output: %w", err)
 	}
 
-	key := fmt.Sprintf("%s:%s", "MyContract.sol", contractName)
+	key := fmt.Sprintf("%s:%s", contractName+".sol", contractName)
 	contract, ok := combined.Contracts[key]
 	if !ok {
 		return "", "", fmt.Errorf("contract %q not found in solc output", key)
