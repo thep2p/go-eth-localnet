@@ -465,7 +465,10 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	contractAddr := common.HexToAddress(addrHex)
 
 	var code string
-	require.NoError(t, client.CallContext(ctx, &code, "eth_getCode", contractAddr.Hex(), model.EthLatestBlock))
+	require.NoError(
+		t,
+		client.CallContext(ctx, &code, "eth_getCode", contractAddr.Hex(), model.EthLatestBlock),
+	)
 	require.NotEqual(t, "0x", code)
 
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
@@ -475,10 +478,14 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.NoError(t, err)
 
 	var valHex string
-	require.NoError(t, client.CallContext(ctx, &valHex, "eth_call", map[string]string{
-		"to":   contractAddr.Hex(),
-		"data": utils.ByteToHex(callData),
-	}, model.EthLatestBlock))
+	require.NoError(
+		t, client.CallContext(
+			ctx, &valHex, "eth_call", map[string]string{
+				"to":   contractAddr.Hex(),
+				"data": utils.ByteToHex(callData),
+			}, model.EthLatestBlock,
+		),
+	)
 	val := testutils.HexToBigInt(t, valHex)
 	require.Zero(t, val.Int64())
 
@@ -536,10 +543,14 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	)
 	require.Equal(t, "0x1", receipt2[model.ReceiptStatus])
 
-	require.NoError(t, client.CallContext(ctx, &valHex, "eth_call", map[string]string{
-		"to":   contractAddr.Hex(),
-		"data": utils.ByteToHex(callData),
-	}, model.EthLatestBlock))
+	require.NoError(
+		t, client.CallContext(
+			ctx, &valHex, "eth_call", map[string]string{
+				"to":   contractAddr.Hex(),
+				"data": utils.ByteToHex(callData),
+			}, model.EthLatestBlock,
+		),
+	)
 	val = testutils.HexToBigInt(t, valHex)
 	require.Equal(t, int64(7), val.Int64())
 
