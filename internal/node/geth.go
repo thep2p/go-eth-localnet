@@ -93,7 +93,7 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		opt(genesis)
 	}
 	ethCfg := &ethconfig.Config{
-		NetworkId: 1337,
+		NetworkId: localNetChainID,
 		Genesis:   genesis,
 		SyncMode:  ethconfig.FullSync,
 	}
