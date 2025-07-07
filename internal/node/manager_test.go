@@ -275,7 +275,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 	)
 
 	// The receipt should indicate success (status 1) and gas used should be non-zero.
-	require.Equal(t, "0x1", receipt[model.ReceiptStatus])
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt[model.ReceiptStatus])
 
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
@@ -377,7 +377,7 @@ func TestRevertingTransaction(t *testing.T) {
 	)
 
 	// The receipt should indicate a failure (status 0) and gas used should be non-zero.
-	require.Equal(t, "0x0", receipt[model.ReceiptStatus])
+	require.Equal(t, model.ReceiptTxStatusFailure, receipt[model.ReceiptStatus])
 
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
@@ -401,16 +401,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	defer client.Close()
 
 	var nonceHex string
-	require.NoError(
-		t,
-		client.CallContext(
-			ctx,
-			&nonceHex,
-			model.EthGetTransactionCount,
-			addr.Hex(),
-			model.EthLatestBlock,
-		),
-	)
+	require.NoError(t, client.CallContext(ctx, &nonceHex, model.EthGetTransactionCount, addr.Hex(), model.EthLatestBlock))
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	gasLimit := uint64(1_000_000)
@@ -441,34 +432,26 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.NoError(t, err)
 
 	var txHash common.Hash
-	require.NoError(
-		t,
-		client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)),
-	)
+	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
 
 	var receipt map[string]interface{}
 	require.Eventually(
 		t, func() bool {
-			if err := client.CallContext(
-				ctx, &receipt, model.EthGetTransactionReceipt, txHash,
-			); err != nil {
+			if err := client.CallContext(ctx, &receipt, model.EthGetTransactionReceipt, txHash); err != nil {
 				return false
 			}
 			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
 		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
 	)
 
-	require.Equal(t, "0x1", receipt[model.ReceiptStatus])
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt[model.ReceiptStatus])
 
 	addrHex, ok := receipt["contractAddress"].(string)
 	require.True(t, ok)
 	contractAddr := common.HexToAddress(addrHex)
 
 	var code string
-	require.NoError(
-		t,
-		client.CallContext(ctx, &code, "eth_getCode", contractAddr.Hex(), model.EthLatestBlock),
-	)
+	require.NoError(t, client.CallContext(ctx, &code, "eth_getCode", contractAddr.Hex(), model.EthLatestBlock))
 	require.NotEqual(t, "0x", code)
 
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
@@ -490,16 +473,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.Zero(t, val.Int64())
 
 	var nonceHex2 string
-	require.NoError(
-		t,
-		client.CallContext(
-			ctx,
-			&nonceHex2,
-			model.EthGetTransactionCount,
-			addr.Hex(),
-			model.EthLatestBlock,
-		),
-	)
+	require.NoError(t, client.CallContext(ctx, &nonceHex2, model.EthGetTransactionCount, addr.Hex(), model.EthLatestBlock))
 	nonce2 := testutils.HexToBigInt(t, nonceHex2)
 
 	setData, err := contractABI.Pack("set", big.NewInt(7))
@@ -541,7 +515,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			return receipt2 != nil && receipt2[model.ReceiptBlockNumber] != nil
 		}, 5*time.Second, 500*time.Millisecond, "second receipt not available",
 	)
-	require.Equal(t, "0x1", receipt2[model.ReceiptStatus])
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt2[model.ReceiptStatus])
 
 	require.NoError(
 		t, client.CallContext(

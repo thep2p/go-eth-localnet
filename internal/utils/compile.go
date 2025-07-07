@@ -44,19 +44,20 @@ func CompileFromStr(contractSource string) (
 	// Step 3: Parse solc output
 	var combined struct {
 		Contracts map[string]struct {
-			ABI string `json:"abi"`
-			Bin string `json:"bin"`
+			ABI json.RawMessage `json:"abi"`
+			Bin string          `json:"bin"`
 		} `json:"contracts"`
 	}
 	if err := json.Unmarshal(output, &combined); err != nil {
 		return "", "", fmt.Errorf("unmarshal solc output: %w", err)
 	}
 
-	key := fmt.Sprintf("%s:%s", contractName+".sol", contractName)
-	contract, ok := combined.Contracts[key]
-	if !ok {
-		return "", "", fmt.Errorf("contract %q not found in solc output", key)
+	// solc uses the provided file path as part of the map key which may include
+	// an absolute path. Since only one contract is being compiled, return the
+	// first entry.
+	for _, c := range combined.Contracts {
+		return c.Bin, string(c.ABI), nil
 	}
 
-	return contract.Bin, contract.ABI, nil
+	return "", "", fmt.Errorf("compiled contract not found")
 }

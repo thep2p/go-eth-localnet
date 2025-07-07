@@ -10,6 +10,12 @@ const (
 	// ReceiptBlockNumber represents the block number in a transaction receipt.
 	ReceiptBlockNumber = "blockNumber"
 
+	// ReceiptTxStatusSuccess represents a successful transaction status with a value of "0x1".
+	ReceiptTxStatusSuccess = "0x1"
+
+	// ReceiptTxStatusFailure represents a failed transaction status with a value of "0x0".
+	ReceiptTxStatusFailure = "0x0"
+
 	// ReceiptStatus represents the status in a transaction receipt.
 	ReceiptStatus = "status"
 
