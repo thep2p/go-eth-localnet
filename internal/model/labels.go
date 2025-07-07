@@ -16,6 +16,21 @@ const (
 	// ReceiptTxStatusFailure represents a failed transaction status with a value of "0x0".
 	ReceiptTxStatusFailure = "0x0"
 
+	// ReceiptGetByteCode represents the keyword to retrieve the byte code of a smart contract.
+	ReceiptGetByteCode = "eth_getCode"
+
+	// CallContextEthCall represents the "eth_call" method used for executing a call on the Ethereum network without submitting a transaction.
+	CallContextEthCall = "eth_call"
+
+	// CallContextTo represents the "to" field in the call context, typically specifying the recipient address of the call.
+	CallContextTo = "to"
+
+	// CallContextData is a constant representing the "data" field in Ethereum call context requests.
+	CallContextData = "data"
+
+	// ReceiptContractAddress represents the key for accessing the contract address from a transaction receipt.
+	ReceiptContractAddress = "contractAddress"
+
 	// ReceiptStatus represents the status in a transaction receipt.
 	ReceiptStatus = "status"
 

@@ -408,9 +408,10 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	gasTipCap := big.NewInt(params.GWei)
 	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
 
-	bin := "0x6080604052348015600e575f5ffd5b506101778061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610034575f3560e01c80633fa4f2451461003857806360fe47b114610056575b5f5ffd5b610040610072565b60405161004d91906100cf565b60405180910390f35b610070600480360381019061006b9190610116565b610077565b005b5f5481565b805f819055507f93fe6d397c74fdf1402a8b72e47b68512f0510d7b98a4bc4cbdf6ac7108b3c59816040516100ac91906100cf565b60405180910390a150565b5f819050919050565b6100c9816100b7565b82525050565b5f6020820190506100e25f8301846100c0565b92915050565b5f5ffd5b6100f5816100b7565b81146100ff575f5ffd5b50565b5f81359050610110816100ec565b92915050565b5f6020828403121561012b5761012a6100e8565b5b5f61013884828501610102565b9150509291505056fea2646970667358221220bff5b3d2cf840672c9b15e1fe904503f8ce19ad937610e1f5743c63ef3a838b664736f6c634300081e0033"
-	abiJSON := `[{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newValue","type":"uint256"}],"name":"ValueChanged","type":"event"},{"inputs":[{"internalType":"uint256","name":"v","type":"uint256"}],"name":"set","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"value","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
+	// Generate the ABI and bytecode for the SimpleStorageContract.
+	bin, abiJSON, err := utils.GenerateAbiAndBin("../utils/contracts/SimpleStorageContract.sol")
 
+	// Deploys the contract using the bytecode.
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
 			ChainID:   manager.ChainID(),
@@ -434,6 +435,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	var txHash common.Hash
 	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
 
+	// Eventually the transaction should be included in and a receipt should be available.
 	var receipt map[string]interface{}
 	require.Eventually(
 		t, func() bool {
@@ -446,30 +448,35 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 
 	require.Equal(t, model.ReceiptTxStatusSuccess, receipt[model.ReceiptStatus])
 
-	addrHex, ok := receipt["contractAddress"].(string)
+	addrHex, ok := receipt[model.ReceiptContractAddress].(string)
 	require.True(t, ok)
 	contractAddr := common.HexToAddress(addrHex)
 
+	// Verify that the contract was deployed by checking its bytecode.
 	var code string
-	require.NoError(t, client.CallContext(ctx, &code, "eth_getCode", contractAddr.Hex(), model.EthLatestBlock))
+	require.NoError(t, client.CallContext(ctx, &code, model.ReceiptGetByteCode, contractAddr.Hex(), model.EthLatestBlock))
+	// The bytecode should not be empty, indicating the contract was deployed successfully.
 	require.NotEqual(t, "0x", code)
 
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
 	require.NoError(t, err)
 
+	// Call the `value` function of the SimpleStorageContract to get the initial value (should be 0).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
 	callData, err := contractABI.Pack("value")
 	require.NoError(t, err)
 
+	// Call the contract to get the current value (without sending a transaction).
 	var valHex string
 	require.NoError(
 		t, client.CallContext(
-			ctx, &valHex, "eth_call", map[string]string{
-				"to":   contractAddr.Hex(),
-				"data": utils.ByteToHex(callData),
+			ctx, &valHex, model.CallContextEthCall, map[string]string{
+				model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData),
 			}, model.EthLatestBlock,
 		),
 	)
 	val := testutils.HexToBigInt(t, valHex)
+	// The initial value should be 0 since the contract is just deployed.
 	require.Zero(t, val.Int64())
 
 	var nonceHex2 string
