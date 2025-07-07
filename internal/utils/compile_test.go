@@ -9,7 +9,7 @@ import (
 )
 
 func TestCompileFromStr_Success(t *testing.T) {
-	bin, abi, err := CompileFromStr("./internal/utils/contracts/TestContract1.sol")
+	bin, abi, err := GenerateAbiAndBin("./internal/utils/contracts/TestContract1.sol")
 	require.NoError(t, err)
 	require.NotEmpty(t, bin)
 	require.NotEmpty(t, abi)
@@ -34,7 +34,7 @@ func TestCompileFromStr_CommandFailure(t *testing.T) {
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
-	bin, abi, err := CompileFromStr(contractSrc)
+	bin, abi, err := GenerateAbiAndBin(contractSrc)
 	require.Error(t, err)
 	require.Empty(t, bin)
 	require.Empty(t, abi)

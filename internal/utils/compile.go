@@ -6,9 +6,8 @@ import (
 	"os/exec"
 )
 
-// CompileFromStr compiles a Solidity contract from source string to binary and ABI format.
-// Returns the compiled contract binary, ABI string, and an error if compilation fails.
-func CompileFromStr(solPath string) (
+// GenerateAbiAndBin compiles a Solidity contract and returns its ABI and binary code or an error.
+func GenerateAbiAndBin(solPath string) (
 	contractBin string,
 	contractABI string,
 	err error) {
