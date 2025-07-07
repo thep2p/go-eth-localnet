@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -11,6 +12,16 @@ func GenerateAbiAndBin(solPath string) (
 	contractBin string,
 	contractABI string,
 	err error) {
+
+	// Step 1a: Check if solc is installed
+	if _, err := exec.LookPath("solc"); err != nil {
+		return "", "", fmt.Errorf("solc not found in PATH: %w", err)
+	}
+
+	// Step 1b: Check if the provided file exists
+	if _, err := os.Stat(solPath); err != nil {
+		return "", "", fmt.Errorf("file not found: %w", err)
+	}
 
 	// Step 2: Run solc
 	solcCmd := exec.Command("solc", "--combined-json", "abi,bin", "--metadata-hash", "none", solPath)
