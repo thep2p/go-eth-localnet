@@ -53,5 +53,7 @@ jobs:
           go-version: ${{matrix.go-version}}
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Install Solc
+        run: make install-solc
       - name: Run tests
         run: make test

@@ -1,6 +1,9 @@
-# Minimum Go version
+# Check if running in GitHub Actions (or CI generally)
+IS_CI := $(shell [ -n "$$CI" ] && echo "true" || echo "false")
+# Minimum versions
 GO_MIN_VERSION := 1.23.10
 LINT_VERSION := v1.64.5
+SOLC_VERSION := 0.8.21
 
 # Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
@@ -31,8 +34,8 @@ check-go-version:
 	fi
 
 # Install tools target with a dependency on Go version check
-.PHONY: install-tools
-install-tools: check-go-version
+.PHONY: install-lint
+install-lint: check-go-version
 	@echo "Installing other tools..."
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "🔧 Installing golangci-lint..."; \
@@ -49,7 +52,8 @@ install-tools: check-go-version
 	fi
 	@echo "✅ All tools installed successfully."
 
-
+.PHONY: install-tools
+install-tools: check-go-version install-lint install-solc check-solc
 
 # Linting target with a dependency on Go version check
 .PHONY: lint-fix
@@ -67,3 +71,29 @@ build: check-go-version tidy
 .PHONY: test
 test: check-go-version tidy
 	@go test -v ./...
+
+.PHONY: check-solc
+# Check if solc is available
+check-solc:
+	@command -v solc >/dev/null 2>&1 || { \
+		if [ "$(IS_CI)" = "true" ]; then \
+			echo "⚙️ solc not found; installing..."; \
+			make install-solc; \
+		else \
+			echo "❌ solc not found in \$PATH. Please install it or run \`make install-solc\`."; \
+			exit 1; \
+		fi \
+	}
+	@echo "✅ solc found: $$(solc --version | head -n 1)"
+
+.PHONY: install-solc
+install-solc:
+ifeq ($(GO_OS), darwin)
+	@which brew >/dev/null || (echo "❌ Homebrew not found. Please install it from https://brew.sh" && exit 1)
+	brew install solidity
+else
+	@echo "📥 Downloading solc $(SOLC_VERSION) static binary..."
+	@curl -L -o /tmp/solc https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
+	@chmod +x /tmp/solc
+	@sudo mv /tmp/solc /usr/local/bin/solc
+endif
