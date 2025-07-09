@@ -41,7 +41,7 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 		func() {
 			// ensure the node is stopped and cleaned up within a timeout
 			testutils.RequireCallMustReturnWithinTimeout(
-				t, manager.Done, 5*time.Second, "node shutdown failed",
+				t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
 			)
 		},
 	)
@@ -50,7 +50,7 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 	gethNode := manager.GethNode()
 	require.NotNil(t, gethNode)
 
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), 5*time.Second)
+	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
 
 	return ctx, cancel, manager
 }
@@ -91,7 +91,7 @@ func TestBlockProduction(t *testing.T) {
 
 			num := testutils.HexToBigInt(t, hexNum)
 			return num.Uint64() >= 3
-		}, 15*time.Second, 500*time.Millisecond, "node failed to produce blocks",
+		}, 3*node.OperationTimeout, 500*time.Millisecond, "node failed to produce blocks",
 	)
 }
 
@@ -115,7 +115,7 @@ func TestBlockProductionMonitoring(t *testing.T) {
 			require.NoError(t, client.CallContext(ctx, &hex2, model.EthBlockNumber))
 			n2 := testutils.HexToBigInt(t, hex2)
 			return n2.Uint64() > n1.Uint64()
-		}, 5*time.Second, 500*time.Millisecond, "block number did not increase",
+		}, node.OperationTimeout, 500*time.Millisecond, "block number did not increase",
 	)
 }
 
@@ -140,7 +140,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 				return false
 			}
 			return true
-		}, 5*time.Second, 500*time.Millisecond, "could not fetch latest block",
+		}, node.OperationTimeout, 500*time.Millisecond, "could not fetch latest block",
 	)
 
 	// Ethereum post-merge transitioned to PoS, so PoW-related fields should be zero or empty.
@@ -182,7 +182,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 				return false // mixHash should change with each new block
 			}
 			return true
-		}, 3*time.Second, 500*time.Millisecond, "could not fetch latest block again",
+		}, node.OperationTimeout, 500*time.Millisecond, "could not fetch latest block again",
 	)
 
 }
@@ -270,7 +270,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 				return false
 			}
 			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
-		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
+		}, node.OperationTimeout, 500*time.Millisecond, "receipt not available",
 	)
 
 	require.Equal(t, "0x1", receipt[model.ReceiptStatus])

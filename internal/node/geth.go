@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -16,6 +17,15 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal/model"
+)
+
+const (
+	// StartupTimeout is the maximum time to wait for a node to start.
+	StartupTimeout = 5 * time.Second
+	// ShutdownTimeout is the maximum time to wait for a node to shut down.
+	ShutdownTimeout = 5 * time.Second
+	// OperationTimeout is the maximum time to wait for an operation to complete, e.g., RPC calls, block fetch, etc.
+	OperationTimeout = 5 * time.Second
 )
 
 // Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
