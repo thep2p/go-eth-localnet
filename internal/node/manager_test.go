@@ -225,6 +225,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 	)
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
+	// Prepare a transaction to send 0.1 ETH from account A to account B.
 	value := new(big.Int).Div(oneEth, big.NewInt(10))
 	gasLimit := uint64(21000)            // Standard gas limit for ETH transfer transactions
 	gasTipCap := big.NewInt(params.GWei) // Max tip we are willing to pay for the transaction
