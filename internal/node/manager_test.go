@@ -280,6 +280,9 @@ func TestSimpleETHTransfer(t *testing.T) {
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
 	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
+	// 0 <= gasUsed <= 21000
+	require.Less(t, uint64(0), gasUsed.Uint64())
+	require.LessOrEqual(t, gasUsed.Uint64(), gasLimit)
 
 	effGasPriceHex, ok := receipt[model.ReceiptEffectiveGasPrice].(string)
 	require.True(t, ok)
