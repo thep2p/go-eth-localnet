@@ -93,9 +93,13 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		opt(genesis)
 	}
 	ethCfg := &ethconfig.Config{
-		NetworkId: 1337,
-		Genesis:   genesis,
-		SyncMode:  ethconfig.FullSync,
+		// Network Ids are used to differentiate between different Ethereum networks.
+		// The mainnet uses 1, and private networks often use 1337.
+		NetworkId: localNetChainID,
+		// Creates a genesis block for a development network.
+		// Setting the gas limit to 30 million which is typical for Ethereum blocks.
+		Genesis:  genesis,
+		SyncMode: ethconfig.FullSync,
 	}
 	ethService, err := eth.New(stack, ethCfg)
 	if err != nil {
