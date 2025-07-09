@@ -226,7 +226,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	// Prepare a transaction to send 0.1 ETH from account A to account B.
-	value := new(big.Int).Div(oneEth, big.NewInt(10))
+	txValue := new(big.Int).Div(oneEth, big.NewInt(10))
 	gasLimit := uint64(21000)            // Standard gas limit for ETH transfer transactions
 	gasTipCap := big.NewInt(params.GWei) // Max tip we are willing to pay for the transaction
 	// Max fee cap is set to 2x the tip cap, which is a common practice
@@ -242,7 +242,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 			GasTipCap: gasTipCap,
 			GasFeeCap: gasFeeCap,
 			To:        &bAddr,
-			Value:     value,
+			Value:     txValue,
 		},
 	)
 
@@ -288,10 +288,10 @@ func TestSimpleETHTransfer(t *testing.T) {
 	// Balance of account A should decrease by the value sent plus the gas used times the effective gas price.
 	expectedA := new(big.Int).Sub(
 		balA,
-		new(big.Int).Add(value, new(big.Int).Mul(gasUsed, effGasPrice)),
+		new(big.Int).Add(txValue, new(big.Int).Mul(gasUsed, effGasPrice)),
 	)
 	// Balance of account B should increase by the value sent.
-	expectedB := new(big.Int).Add(balB, value)
+	expectedB := new(big.Int).Add(balB, txValue)
 	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
 }
