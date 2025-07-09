@@ -90,6 +90,7 @@ func TestBlockProduction(t *testing.T) {
 			}
 
 			num := testutils.HexToBigInt(t, hexNum)
+			// Block number should be at least 3 to ensure the node is producing blocks (at least 2 blocks + genesis).
 			return num.Uint64() >= 3
 		}, 3*node.OperationTimeout, 500*time.Millisecond, "node failed to produce blocks",
 	)
