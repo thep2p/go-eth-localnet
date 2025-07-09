@@ -199,7 +199,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, manager := startNode(t, node.WithGenesisAccount(aAddr, oneEth))
+	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(aAddr, oneEth))
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))

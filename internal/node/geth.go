@@ -27,8 +27,8 @@ type Launcher struct {
 // LaunchOption mutates the genesis block before the node starts.
 type LaunchOption func(gen *core.Genesis)
 
-// WithGenesisAccount pre-funds the given address with the provided balance.
-func WithGenesisAccount(addr common.Address, bal *big.Int) LaunchOption {
+// WithPreFundGenesisAccount pre-funds the given address with the provided balance.
+func WithPreFundGenesisAccount(addr common.Address, bal *big.Int) LaunchOption {
 	return func(gen *core.Genesis) {
 		if gen.Alloc == nil {
 			gen.Alloc = types.GenesisAlloc{}
