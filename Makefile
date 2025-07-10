@@ -1,22 +1,36 @@
-# Check if running in GitHub Actions (or CI generally)
+# =========================
+# Configurable Variables
+# =========================
+
 IS_CI := $(shell [ -n "$$CI" ] && echo "true" || echo "false")
-# Minimum versions
 GO_MIN_VERSION := 1.23.10
 LINT_VERSION := v1.64.5
 SOLC_VERSION := 0.8.21
 
-# Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
-GO_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/arm64/arm64/')
-
-# Download URL for the Go package
+GO_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/arm64/arm64/;s/aarch64/arm64/')
 GO_DOWNLOAD_URL := https://golang.org/dl/go$(GO_MIN_VERSION).$(GO_OS)-$(GO_ARCH).tar.gz
-
-# Go installation directory and binary path
 GO_INSTALL_DIR := /usr/local/go
 GO_BIN := $(shell which go)
 
-# Hook to check Go version before running any target
+# =========================
+# Platform-specific solc URL
+# =========================
+
+ifeq ($(GO_OS),linux)
+  ifeq ($(GO_ARCH),amd64)
+    SOLC_URL := https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
+  else ifeq ($(GO_ARCH),arm64)
+    SOLC_URL := https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux-arm64
+  else
+    $(error Unsupported Linux architecture: $(GO_ARCH))
+  endif
+endif
+
+# =========================
+# Targets
+# =========================
+
 .PHONY: check-go-version
 check-go-version:
 	@if [ -x "$(GO_BIN)" ]; then \
@@ -33,7 +47,6 @@ check-go-version:
 		exit 1; \
 	fi
 
-# Install tools target with a dependency on Go version check
 .PHONY: install-lint
 install-lint: check-go-version
 	@echo "Installing other tools..."
@@ -42,7 +55,7 @@ install-lint: check-go-version
 		go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 	else \
 		VERSION=$$(golangci-lint --version --format "{{.Version}}"); \
-		if [[ "$${VERSION}" != "$(LINT_VERSION)" ]]; then \
+		if [ "$${VERSION}" != "$(LINT_VERSION)" ]; then \
 			echo "🔄 Updating/Downgrading golangci-lint to $(LINT_VERSION)..."; \
 			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
 			go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
@@ -55,15 +68,11 @@ install-lint: check-go-version
 .PHONY: install-tools
 install-tools: check-go-version install-lint install-solc check-solc
 
-# Linting target with a dependency on Go version check
 .PHONY: lint
 lint: check-go-version tidy
 	@golangci-lint run --config ./integration/golangci-lint.yml ./...
 	@echo "✅ Linting completed"
 
-
-
-# Linting target with a dependency on Go version check
 .PHONY: lint-fix
 lint-fix: check-go-version tidy
 	@golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
@@ -83,14 +92,13 @@ test: check-go-version tidy
 	@echo "✅ All tests passed"
 
 .PHONY: check-solc
-# Check if solc is available
 check-solc:
 	@command -v solc >/dev/null 2>&1 || { \
 		if [ "$(IS_CI)" = "true" ]; then \
 			echo "⚙️ solc not found; installing..."; \
-			make install-solc; \
+			$(MAKE) install-solc; \
 		else \
-			echo "❌ solc not found in \$PATH. Please install it or run \`make install-solc\`."; \
+			echo "❌ solc not found in $$PATH. Please install it or run \`make install-solc\`."; \
 			exit 1; \
 		fi \
 	}
@@ -98,12 +106,26 @@ check-solc:
 
 .PHONY: install-solc
 install-solc:
-ifeq ($(GO_OS), darwin)
-	@which brew >/dev/null || (echo "❌ Homebrew not found. Please install it from https://brew.sh" && exit 1)
-	brew install solidity
+ifeq ($(GO_OS),darwin)
+	@echo "📥 Installing solc for macOS ($(GO_ARCH))..."
+	@which brew >/dev/null || (echo "❌ Homebrew not found" && exit 1)
+	@brew install solidity
+	@echo "⚠️  Version pinning not supported via brew. Installed latest version."
 else
-	@echo "📥 Downloading solc $(SOLC_VERSION) static binary..."
-	@curl -L -o /tmp/solc https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
-	@chmod +x /tmp/solc
-	@sudo mv /tmp/solc /usr/local/bin/solc
+	@echo "📥 Installing solc $(SOLC_VERSION) for $(GO_OS)/$(GO_ARCH)..."
+	@mkdir -p $(CURDIR)/bin
+	@rm -f $(CURDIR)/bin/solc
+	@curl -sSL -o $(CURDIR)/bin/solc $(SOLC_URL)
+	@chmod +x $(CURDIR)/bin/solc
+	@file $(CURDIR)/bin/solc
+	@if ! [ -x $(CURDIR)/bin/solc ]; then \
+		echo "❌ solc is not executable after download. Download may have failed."; \
+		exit 1; \
+	fi
+	@if ! file $(CURDIR)/bin/solc | grep -qi "$(GO_ARCH)"; then \
+		echo "❌ solc binary architecture mismatch: expected $(GO_ARCH). Got:"; \
+		file $(CURDIR)/bin/solc; \
+		exit 1; \
+	fi
+	@echo "✅ Installed solc to $(CURDIR)/bin/solc"
 endif

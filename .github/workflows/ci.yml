@@ -12,17 +12,28 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        go-version:
-          - '1.23'
+        go-version: [ '1.23' ]
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check Go Version
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: ${{matrix.go-version}}
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      - name: builds the code
+          go-version: ${{ matrix.go-version }}
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            # Don't cache bin/ !
+            # Don't cache bin/solc !
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Build the code
         run: make build
 
   lint:
@@ -30,30 +41,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
           go-version: 1.23.10
-      # Install the specific golangci-lint version
+
       - name: Install golangci-lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v1.64.5/install.sh | sh -s -- -b $GITHUB_WORKSPACE/bin v1.64.5
-      - run: $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./...
+
+      - name: Lint the code
+        run: $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./...
+
   unittest:
     name: Unit Tests
     strategy:
       fail-fast: false
       matrix:
-        go-version:
-          - '1.23'
+        go-version: [ '1.23' ]
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check Go Version
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: ${{matrix.go-version}}
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      - name: Install Solc
-        run: make install-solc
+          go-version: ${{ matrix.go-version }}
+
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      - name: Install solc via apt
+        run: |
+            sudo add-apt-repository ppa:ethereum/ethereum -y
+            sudo apt-get update
+            sudo apt-get install -y solc
       - name: Run tests
         run: make test
