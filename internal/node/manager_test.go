@@ -413,6 +413,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	// Generate the ABI and bytecode for the SimpleStorageContract.
 	// cf. internal/utils/contracts/SimpleStorageContract.sol
 	bin, abiJSON, err := utils.GenerateAbiAndBin("../utils/contracts/SimpleStorageContract.sol")
+	require.NoError(t, err, "failed to generate ABI and bytecode for SimpleStorageContract")
 
 	// Deploys the contract using the bytecode.
 	tx := types.NewTx(

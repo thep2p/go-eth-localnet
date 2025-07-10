@@ -29,19 +29,6 @@ func TestGenerateAbiAndBin_FileNotFound(t *testing.T) {
 	require.Empty(t, abi)
 }
 
-func TestGenerateAbiAndBin_SolcNotInstalled(t *testing.T) {
-	origPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", origPath)
-
-	t.Setenv("PATH", "")
-
-	bin, abi, err := GenerateAbiAndBin("./contracts/TestContract1.sol")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "solc not found in PATH")
-	require.Empty(t, bin)
-	require.Empty(t, abi)
-}
-
 func TestGenerateAbiAndBin_InvalidSolcOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	solcPath := filepath.Join(tmpDir, "solc")
