@@ -404,11 +404,14 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.NoError(t, client.CallContext(ctx, &nonceHex, model.EthGetTransactionCount, addr.Hex(), model.EthLatestBlock))
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
+	// Set the gas limit, tip cap, and fee cap for the transaction.
+	// We set a gas limit of 1,000,000 which is sufficient for contract deployment.
 	gasLimit := uint64(1_000_000)
 	gasTipCap := big.NewInt(params.GWei)
 	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
 
 	// Generate the ABI and bytecode for the SimpleStorageContract.
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
 	bin, abiJSON, err := utils.GenerateAbiAndBin("../utils/contracts/SimpleStorageContract.sol")
 
 	// Deploys the contract using the bytecode.
@@ -419,12 +422,17 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			Gas:       gasLimit,
 			GasTipCap: gasTipCap,
 			GasFeeCap: gasFeeCap,
-			To:        nil,
-			Value:     big.NewInt(0),
-			Data:      common.FromHex(bin),
+			// To is nil as this is a contract deployment transaction, the signer is the contract creator.
+			// There is no recipient address for contract creation.
+			// We retrieve the contract address from the receipt after the transaction is included in a block.
+			To: nil,
+			// The value is set to 0 as we are not sending any Ether with the contract deployment.
+			Value: big.NewInt(0),
+			Data:  common.FromHex(bin),
 		},
 	)
 
+	// Sign the transaction with the private key of the contract creator.
 	signer := types.LatestSignerForChainID(manager.ChainID())
 	signedTx, err := types.SignTx(tx, signer, key)
 	require.NoError(t, err)
@@ -432,6 +440,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	txBytes, err := signedTx.MarshalBinary()
 	require.NoError(t, err)
 
+	// Send the signed transaction to the node and get the transaction hash.
 	var txHash common.Hash
 	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
 
@@ -456,7 +465,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	var code string
 	require.NoError(t, client.CallContext(ctx, &code, model.ReceiptGetByteCode, contractAddr.Hex(), model.EthLatestBlock))
 	// The bytecode should not be empty, indicating the contract was deployed successfully.
-	require.NotEqual(t, "0x", code)
+	require.NotEqual(t, model.AccountEmptyContract, code)
 
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
 	require.NoError(t, err)
@@ -466,7 +475,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	callData, err := contractABI.Pack("value")
 	require.NoError(t, err)
 
-	// Call the contract to get the current value (without sending a transaction).
+	// Call the contract to get the current `value` (without sending a transaction).
 	var valHex string
 	require.NoError(
 		t, client.CallContext(
@@ -479,10 +488,14 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	// The initial value should be 0 since the contract is just deployed.
 	require.Zero(t, val.Int64())
 
+	// Now we will set a new value (e.g., 7) using the `set` function of the contract.
+	// First, we need to get the nonce for the next transaction.
 	var nonceHex2 string
 	require.NoError(t, client.CallContext(ctx, &nonceHex2, model.EthGetTransactionCount, addr.Hex(), model.EthLatestBlock))
 	nonce2 := testutils.HexToBigInt(t, nonceHex2)
 
+	// Prepare the transaction to call the `set` function of the contract with a new value (7).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
 	setData, err := contractABI.Pack("set", big.NewInt(7))
 	require.NoError(t, err)
 
@@ -493,30 +506,30 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			Gas:       gasLimit,
 			GasTipCap: gasTipCap,
 			GasFeeCap: gasFeeCap,
-			To:        &contractAddr,
-			Value:     big.NewInt(0),
-			Data:      setData,
+			// To is the contract address we just deployed.
+			To: &contractAddr,
+			// Value is set to 0 as we are not sending any Ether with this transaction.
+			Value: big.NewInt(0),
+			Data:  setData,
 		},
 	)
 
+	// Sign the transaction with the private key of the contract creator.
 	signedTx2, err := types.SignTx(tx2, signer, key)
 	require.NoError(t, err)
 
 	txBytes2, err := signedTx2.MarshalBinary()
 	require.NoError(t, err)
 
+	// Send the signed transaction to the node and get the transaction hash.
 	var txHash2 common.Hash
-	require.NoError(
-		t,
-		client.CallContext(ctx, &txHash2, model.EthSendRawTransaction, utils.ByteToHex(txBytes2)),
-	)
+	require.NoError(t, client.CallContext(ctx, &txHash2, model.EthSendRawTransaction, utils.ByteToHex(txBytes2)))
 
+	// Eventually the transaction should be included in a block and a receipt should be available.
 	var receipt2 map[string]interface{}
 	require.Eventually(
 		t, func() bool {
-			if err := client.CallContext(
-				ctx, &receipt2, model.EthGetTransactionReceipt, txHash2,
-			); err != nil {
+			if err := client.CallContext(ctx, &receipt2, model.EthGetTransactionReceipt, txHash2); err != nil {
 				return false
 			}
 			return receipt2 != nil && receipt2[model.ReceiptBlockNumber] != nil
@@ -524,29 +537,45 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	)
 	require.Equal(t, model.ReceiptTxStatusSuccess, receipt2[model.ReceiptStatus])
 
+	// After the transaction is included in a block, we can check the new value.
+	// We use the same callData to call the `value` function again.
+	// This is not a transaction, but a call to the contract to get the current value.
 	require.NoError(
 		t, client.CallContext(
-			ctx, &valHex, "eth_call", map[string]string{
-				"to":   contractAddr.Hex(),
-				"data": utils.ByteToHex(callData),
-			}, model.EthLatestBlock,
+			ctx,
+			&valHex,
+			model.CallContextEthCall,
+			map[string]string{model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData)},
+			model.EthLatestBlock,
 		),
 	)
+	// The value should now be 7, as we set it in the previous transaction.
 	val = testutils.HexToBigInt(t, valHex)
 	require.Equal(t, int64(7), val.Int64())
 
-	logs, ok := receipt2["logs"].([]interface{})
+	// The SimpleStorageContract emits an event when the value is set.
+	// We can check the receipt for logs to verify that the event was emitted.
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	// There should be one log in the receipt, corresponding to the ValueChanged event.
+	logs, ok := receipt2[model.ReceiptLogs].([]interface{})
 	require.True(t, ok)
 	require.Len(t, logs, 1)
+
+	// The log is a map with keys "topics" and "data".
 	logObj, ok := logs[0].(map[string]interface{})
 	require.True(t, ok)
-	topics, ok := logObj["topics"].([]interface{})
+	topics, ok := logObj[model.ReceiptLogTopics].([]interface{})
 	require.True(t, ok)
 	require.True(t, len(topics) > 0)
+
+	// The first topic is the event signature hash for ValueChanged(uint256).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
 	eventID := crypto.Keccak256Hash([]byte("ValueChanged(uint256)"))
 	require.Equal(t, eventID.Hex(), topics[0].(string))
-	dataHex, ok := logObj["data"].(string)
+	dataHex, ok := logObj[model.ReceiptLogData].(string)
 	require.True(t, ok)
+
+	// The data field contains the value set in the contract, which should be 7.
 	data := common.FromHex(dataHex)
 	eventVal := new(big.Int).SetBytes(data)
 	require.Equal(t, int64(7), eventVal.Int64())

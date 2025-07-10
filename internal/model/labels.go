@@ -34,6 +34,15 @@ const (
 	// ReceiptStatus represents the status in a transaction receipt.
 	ReceiptStatus = "status"
 
+	// ReceiptLogs represents the logs field in a transaction receipt.
+	ReceiptLogs = "logs"
+
+	// ReceiptLogTopics represents the topics field in a transaction receipt log.
+	ReceiptLogTopics = "topics"
+
+	// ReceiptLogData represents the data field in a transaction receipt log.
+	ReceiptLogData = "data"
+
 	// BlockMixHash represents the mix hash field in a blockchain block.
 	BlockMixHash = "mixHash"
 
@@ -63,4 +72,8 @@ const (
 
 	// EthWeb3ClientVersion represents the method for retrieving the client version.
 	EthWeb3ClientVersion = "web3_clientVersion"
+
+	// AccountEmptyContract represents the default value for an empty contract address "0x".
+	// This is used to indicate that no contract is deployed at the specified address.
+	AccountEmptyContract = "0x"
 )

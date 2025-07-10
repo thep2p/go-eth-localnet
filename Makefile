@@ -56,8 +56,13 @@ install-lint: check-go-version
 install-tools: check-go-version install-lint install-solc check-solc
 
 # Linting target with a dependency on Go version check
-.PHONY: lint-fix
+.PHONY: lint
 lint: check-go-version tidy
+	 @golangci-lint run --config ./integration/golangci-lint.yml ./...
+
+# Linting target with a dependency on Go version check
+.PHONY: lint-fix
+lint-fix: check-go-version tidy
 	 @golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
 
 .PHONY: tidy
