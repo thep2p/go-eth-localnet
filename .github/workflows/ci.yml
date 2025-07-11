@@ -77,26 +77,9 @@ jobs:
           SOLC_VERSION=0.8.30
           SOLC_COMMIT=73712a01
           mkdir -p ./bin
-
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "x86_64" ]; then
-            SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc-static-linux"
-          elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc-static-linux-arm64"
-          else
-            echo "Unsupported architecture: $ARCH"
-            exit 1
-          fi
-
+          SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc-static-linux"
           echo "Downloading $SOLC_URL"
           curl -sSL -o ./bin/solc "$SOLC_URL"
-
-          if file ./bin/solc | grep -q 'ASCII text'; then
-            echo "❌ Downloaded file is not a binary. The asset does not exist for this architecture/version."
-            head -20 ./bin/solc
-            exit 1
-          fi
-
           chmod +x ./bin/solc
           echo "$(pwd)/bin" >> $GITHUB_PATH
           echo "Installed solc version:"
