@@ -136,7 +136,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 	require.Eventually(
 		t, func() bool {
 			if err := client.CallContext(
-				ctx, &block, model.EthGetBlockByNumber, model.EthLatestBlock, false,
+				ctx, &block, model.EthGetBlockByNumber, model.EthBlockLatest, false,
 			); err != nil {
 				return false
 			}
@@ -172,7 +172,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 		t, func() bool {
 			var block2 map[string]interface{}
 			if err := client.CallContext(
-				ctx, &block2, model.EthGetBlockByNumber, model.EthLatestBlock, false,
+				ctx, &block2, model.EthGetBlockByNumber, model.EthBlockLatest, false,
 			); err != nil {
 				return false
 			}
@@ -220,7 +220,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 			&nonceHex,
 			model.EthGetTransactionCount,
 			aAddr.Hex(),
-			model.EthLatestBlock,
+			model.EthBlockLatest,
 		),
 	)
 	nonce := testutils.HexToBigInt(t, nonceHex)
