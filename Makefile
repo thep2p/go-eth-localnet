@@ -1,19 +1,36 @@
-# Minimum Go version
+# =========================
+# Configurable Variables
+# =========================
+
+IS_CI := $(shell [ -n "$$CI" ] && echo "true" || echo "false")
 GO_MIN_VERSION := 1.23.10
 LINT_VERSION := v1.64.5
+SOLC_VERSION := 0.8.21
 
-# Dynamically detect OS (e.g., darwin, linux) and architecture (amd64, arm64)
 GO_OS := $(shell uname -s | tr A-Z a-z)
-GO_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/arm64/arm64/')
-
-# Download URL for the Go package
+GO_ARCH := $(shell uname -m | sed 's/x86_64/amd64/;s/arm64/arm64/;s/aarch64/arm64/')
 GO_DOWNLOAD_URL := https://golang.org/dl/go$(GO_MIN_VERSION).$(GO_OS)-$(GO_ARCH).tar.gz
-
-# Go installation directory and binary path
 GO_INSTALL_DIR := /usr/local/go
 GO_BIN := $(shell which go)
 
-# Hook to check Go version before running any target
+# =========================
+# Platform-specific solc URL
+# =========================
+
+ifeq ($(GO_OS),linux)
+  ifeq ($(GO_ARCH),amd64)
+    SOLC_URL := https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
+  else ifeq ($(GO_ARCH),arm64)
+    SOLC_URL := https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux-arm64
+  else
+    $(error Unsupported Linux architecture: $(GO_ARCH))
+  endif
+endif
+
+# =========================
+# Targets
+# =========================
+
 .PHONY: check-go-version
 check-go-version:
 	@if [ -x "$(GO_BIN)" ]; then \
@@ -30,16 +47,15 @@ check-go-version:
 		exit 1; \
 	fi
 
-# Install tools target with a dependency on Go version check
-.PHONY: install-tools
-install-tools: check-go-version
+.PHONY: install-lint
+install-lint: check-go-version
 	@echo "Installing other tools..."
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "🔧 Installing golangci-lint..."; \
 		go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
 	else \
 		VERSION=$$(golangci-lint --version --format "{{.Version}}"); \
-		if [[ "$${VERSION}" != "$(LINT_VERSION)" ]]; then \
+		if [ "$${VERSION}" != "$(LINT_VERSION)" ]; then \
 			echo "🔄 Updating/Downgrading golangci-lint to $(LINT_VERSION)..."; \
 			go clean -i github.com/golangci/golangci-lint/cmd/golangci-lint; \
 			go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION); \
@@ -49,12 +65,18 @@ install-tools: check-go-version
 	fi
 	@echo "✅ All tools installed successfully."
 
+.PHONY: install-tools
+install-tools: check-go-version install-lint
 
-
-# Linting target with a dependency on Go version check
-.PHONY: lint-fix
+.PHONY: lint
 lint: check-go-version tidy
-	 @golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
+	@golangci-lint run --config ./integration/golangci-lint.yml ./...
+	@echo "✅ Linting completed"
+
+.PHONY: lint-fix
+lint-fix: check-go-version tidy
+	@golangci-lint run --fix --config ./integration/golangci-lint.yml ./...
+	@echo "✅ Linting (with fix) completed"
 
 .PHONY: tidy
 tidy: check-go-version
@@ -67,3 +89,4 @@ build: check-go-version tidy
 .PHONY: test
 test: check-go-version tidy
 	@go test -v ./...
+	@echo "✅ All tests passed"
