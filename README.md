@@ -3,8 +3,9 @@ A fully Go-native tool to spin up and orchestrate a local Ethereum network compo
 
 ## Prerequisites
 
-- **Go**: The project requires a minimum of **Go 1.23.10** or higher. You can download and install the required version
-  from [the official Go website](https://go.dev/dl/). Make sure you have the correct version installed by running:
+### Golang
+The project requires a minimum of **Go 1.23.10** or higher. You can download and install the required version
+from [the official Go website](https://go.dev/dl/). Make sure you have the correct version installed by running:
 
 ```bash
 go version
@@ -12,7 +13,8 @@ go version
 
 If your Go version is lower than **1.23.10**, please upgrade your Go installation.
 
-- **Soldity**: The project uses the Soldity compiler for smart contract development. You can install it using the following command:
+### Solidity 
+The project uses the Soldity compiler for smart contract development. You can install it using the following command:
 
 ```bash
 brew install solidity
