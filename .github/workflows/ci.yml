@@ -77,13 +77,18 @@ jobs:
           SOLC_VERSION=0.8.30
           SOLC_COMMIT=73712a01
           mkdir -p ./bin
-          SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc.tar.gz"
-          echo "Downloading $SOLC_URL"
-          curl -sSL -o ./bin/solc.tar.gz "$SOLC_URL"
-          tar -xzvf ./bin/solc.tar.gz -C ./bin
+          # Try static binary first (does NOT exist for this version)
+          SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc-static-linux"
+          HTTP_STATUS=$(curl -sSL -w '%{http_code}' -o ./bin/solc "$SOLC_URL")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            # Fallback to .tar.gz
+            SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc.tar.gz"
+            echo "Static binary not found, falling back to tar.gz: $SOLC_URL"
+            curl -sSL -o ./bin/solc.tar.gz "$SOLC_URL"
+            tar -xzvf ./bin/solc.tar.gz -C ./bin
+          fi
           chmod +x ./bin/solc
           echo "$(pwd)/bin" >> $GITHUB_PATH
-          echo "Installed solc version:"
           ./bin/solc --version
       - name: Run tests
         run: make test
