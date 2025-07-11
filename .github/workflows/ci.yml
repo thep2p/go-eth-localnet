@@ -71,17 +71,11 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
-
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-      - name: Install solc via apt
+      - name: Install latest solc with apt
         run: |
-            sudo add-apt-repository ppa:ethereum/ethereum -y
-            sudo apt-get update
-            sudo apt-get install -y solc
+          sudo add-apt-repository ppa:ethereum/ethereum -y
+          sudo apt-get update
+          sudo apt-get install -y solc
+          solc --version
       - name: Run tests
         run: make test
