@@ -2,10 +2,13 @@ package node
 
 import (
 	"fmt"
+	"math/big"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/catalyst"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -16,10 +19,37 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/model"
 )
 
+const (
+	// StartupTimeout is the maximum time to wait for a node to start.
+	StartupTimeout = 5 * time.Second
+	// ShutdownTimeout is the maximum time to wait for a node to shut down.
+	ShutdownTimeout = 5 * time.Second
+	// OperationTimeout is the maximum time to wait for an operation to complete, e.g., RPC calls, block fetch, etc.
+	OperationTimeout = 5 * time.Second
+)
+
 // Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
 type Launcher struct {
 	logger       zerolog.Logger
 	minerStarted bool
+}
+
+// LaunchOption mutates the genesis block before the node starts.
+type LaunchOption func(gen *core.Genesis)
+
+// WithPreFundGenesisAccount pre-funds the given address with the provided balance.
+func WithPreFundGenesisAccount(addr common.Address, bal *big.Int) LaunchOption {
+	return func(gen *core.Genesis) {
+		if gen.Alloc == nil {
+			gen.Alloc = types.GenesisAlloc{}
+		}
+		acc := gen.Alloc[addr]
+		if acc.Balance == nil {
+			acc.Balance = new(big.Int)
+		}
+		acc.Balance.Set(bal)
+		gen.Alloc[addr] = acc
+	}
 }
 
 // NewLauncher returns a Launcher.
@@ -28,7 +58,7 @@ func NewLauncher(logger zerolog.Logger) *Launcher {
 }
 
 // Launch creates, configures, and starts a Geth node with static peers.
-func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
+func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, error) {
 	// ensure datadir
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("mkdir datadir: %w", err)
@@ -65,17 +95,25 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)
 	}
+
+	// Creates a genesis block for a development network.
+	// Setting the gas limit to 30 million which is typical for Ethereum blocks.
+	genesis := core.DeveloperGenesisBlock(30_000_000, nil)
+	for _, opt := range opts {
+		opt(genesis)
+	}
 	ethCfg := &ethconfig.Config{
 		// Network Ids are used to differentiate between different Ethereum networks.
 		// The mainnet uses 1, and private networks often use 1337.
-		NetworkId: 1337,
+		NetworkId: localNetChainID,
 		// Creates a genesis block for a development network.
 		// Setting the gas limit to 30 million which is typical for Ethereum blocks.
-		Genesis:  core.DeveloperGenesisBlock(30_000_000, nil),
+		Genesis:  genesis,
 		SyncMode: ethconfig.FullSync,
 	}
 	ethService, err := eth.New(stack, ethCfg)
 	if err != nil {
+
 		return nil, fmt.Errorf("attach eth: %w", err)
 	}
 
@@ -112,5 +150,5 @@ func (l *Launcher) Launch(cfg model.Config) (*model.Handle, error) {
 		"id",
 		cfg.ID.String(),
 	).Msg("Node started")
-	return model.NewHandle(stack, stack.Server().NodeInfo().Enode, cfg), nil
+	return stack, nil
 }

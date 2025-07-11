@@ -9,7 +9,6 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 	"os"
 	"testing"
-	"time"
 )
 
 // TestSingleNodeLaunch verifies that a single Geth node can be launched and
@@ -30,21 +29,21 @@ func TestSingleNodeLaunch(t *testing.T) {
 	}
 
 	launcher := node.NewLauncher(logger)
-	handle, err := launcher.Launch(cfg)
+	gethNode, err := launcher.Launch(cfg)
 	require.NoError(t, err)
-	require.NotNil(t, handle)
-	require.Contains(t, handle.NodeURL(), "enode://")
+	require.NotNil(t, gethNode)
+	require.Contains(t, gethNode.Server().NodeInfo().Enode, "enode://")
 
 	defer func() {
 		testutils.RequireCallMustReturnWithinTimeout(
 			t, func() {
-				err := handle.Close()
+				err := gethNode.Close()
 				if err != nil {
 					logger.Fatal().Err(err).Msg("failed to close node")
 				}
 				logger.Info().Msg("Node closed successfully")
 				tmp.Remove()
-			}, 5*time.Second, "node handle did not close on time",
+			}, node.ShutdownTimeout, "failed to shutdown on time",
 		)
 	}()
 }
