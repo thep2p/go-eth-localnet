@@ -76,8 +76,9 @@ jobs:
           go install github.com/fabelx/go-solc-select/cmd/gsolc-select@latest
       - name: Install and use Solidity 0.8.30
         run: |
+          set -e
           gsolc-select install 0.8.30
-          gsolc-select use 0.8.30
+          gsolc-select use 0.8.30 || (echo "gsolc-select failed; check formatting in its output"; exit 1)
           export PATH="$HOME/.solc-select/bin:$PATH"
           which solc
           solc --version
