@@ -1,6 +1,11 @@
 package model
 
+// Constants in this file are used as keys to represent various data points related to Ethereum
+// transactions, receipts, and blocks. They also define RPC method calls for interacting
+// with an Ethereum node API.
+
 const (
+	// Receipt-related constants
 	// ReceiptGasUsed represents the gas used in a transaction receipt.
 	ReceiptGasUsed = "gasUsed"
 
@@ -13,6 +18,7 @@ const (
 	// ReceiptStatus represents the status in a transaction receipt.
 	ReceiptStatus = "status"
 
+	// Block-related constants
 	// BlockMixHash represents the mix hash field in a blockchain block.
 	BlockMixHash = "mixHash"
 
@@ -22,8 +28,8 @@ const (
 	// BlockDifficulty represents the difficulty field in a blockchain block.
 	BlockDifficulty = "difficulty"
 
+	// Ethereum-related method constants
 	// EthLatestBlock represents the latest block identifier in Ethereum.
-	EthLatestBlock = "latest"
 
 	// EthBlockNumber represents the method for retrieving the current block number.
 	EthBlockNumber = "eth_blockNumber"
