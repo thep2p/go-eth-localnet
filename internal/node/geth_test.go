@@ -9,7 +9,6 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 	"os"
 	"testing"
-	"time"
 )
 
 // TestSingleNodeLaunch verifies that a single Geth node can be launched and
@@ -44,7 +43,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 				}
 				logger.Info().Msg("Node closed successfully")
 				tmp.Remove()
-			}, 5*time.Second, "node handle did not close on time",
+			}, node.ShutdownTimeout, "failed to shutdown on time",
 		)
 	}()
 }

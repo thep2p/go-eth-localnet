@@ -77,7 +77,7 @@ func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
 	m.cfg = cfg
 
 	rpcURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.RPCPort)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(StartupTimeout)
 	for {
 		if time.Now().After(deadline) {
 			_ = n.Close()
