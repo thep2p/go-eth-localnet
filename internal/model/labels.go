@@ -30,6 +30,7 @@ const (
 
 	// Ethereum-related method constants
 	// EthLatestBlock represents the latest block identifier in Ethereum.
+	EthBlockLatest = "latest"
 
 	// EthBlockNumber represents the method for retrieving the current block number.
 	EthBlockNumber = "eth_blockNumber"
