@@ -66,7 +66,7 @@ install-lint: check-go-version
 	@echo "✅ All tools installed successfully."
 
 .PHONY: install-tools
-install-tools: check-go-version install-lint install-solc check-solc
+install-tools: check-go-version install-lint
 
 .PHONY: lint
 lint: check-go-version tidy
@@ -90,42 +90,3 @@ build: check-go-version tidy
 test: check-go-version tidy
 	@go test -v ./...
 	@echo "✅ All tests passed"
-
-.PHONY: check-solc
-check-solc:
-	@command -v solc >/dev/null 2>&1 || { \
-		if [ "$(IS_CI)" = "true" ]; then \
-			echo "⚙️ solc not found; installing..."; \
-			$(MAKE) install-solc; \
-		else \
-			echo "❌ solc not found in $$PATH. Please install it or run \`make install-solc\`."; \
-			exit 1; \
-		fi \
-	}
-	@echo "✅ solc found: $$(solc --version | head -n 1)"
-
-.PHONY: install-solc
-install-solc:
-ifeq ($(GO_OS),darwin)
-	@echo "📥 Installing solc for macOS ($(GO_ARCH))..."
-	@which brew >/dev/null || (echo "❌ Homebrew not found" && exit 1)
-	@brew install solidity
-	@echo "⚠️  Version pinning not supported via brew. Installed latest version."
-else
-	@echo "📥 Installing solc $(SOLC_VERSION) for $(GO_OS)/$(GO_ARCH)..."
-	@mkdir -p $(CURDIR)/bin
-	@rm -f $(CURDIR)/bin/solc
-	@curl -sSL -o $(CURDIR)/bin/solc $(SOLC_URL)
-	@chmod +x $(CURDIR)/bin/solc
-	@file $(CURDIR)/bin/solc
-	@if ! [ -x $(CURDIR)/bin/solc ]; then \
-		echo "❌ solc is not executable after download. Download may have failed."; \
-		exit 1; \
-	fi
-	@if ! file $(CURDIR)/bin/solc | grep -qi "$(GO_ARCH)"; then \
-		echo "❌ solc binary architecture mismatch: expected $(GO_ARCH). Got:"; \
-		file $(CURDIR)/bin/solc; \
-		exit 1; \
-	fi
-	@echo "✅ Installed solc to $(CURDIR)/bin/solc"
-endif
