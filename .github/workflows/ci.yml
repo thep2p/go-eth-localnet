@@ -12,28 +12,17 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        go-version: [ '1.23' ]
+        go-version:
+          - '1.23'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
+      - name: Check Go Version
         uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go-version }}
-
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            # Don't cache bin/ !
-            # Don't cache bin/solc !
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-
-      - name: Build the code
+          go-version: ${{matrix.go-version}}
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: builds the code
         run: make build
 
   lint:
@@ -41,37 +30,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.23.10
-
       - name: Install golangci-lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v1.64.5/install.sh | sh -s -- -b $GITHUB_WORKSPACE/bin v1.64.5
-
-      - name: Lint the code
-        run: $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./...
+      - run: $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./...
 
   unittest:
     name: Unit Tests
     strategy:
       fail-fast: false
       matrix:
-        go-version: [ '1.23' ]
+        go-version:
+          - '1.23'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Go
+      - name: Check Go Version
         uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{matrix.go-version}}
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Install solc-select (Python)
         run: pip install solc-select
+
       - name: Install and use Solidity 0.8.30
         run: |
           solc-select install 0.8.30
@@ -79,8 +64,6 @@ jobs:
           echo "$HOME/.solc-select/bin" >> $GITHUB_PATH
           which solc
           solc --version
-      - name: Add solc-select to PATH for later steps
-        run: |
-          echo "$HOME/.solc-select/bin" >> $GITHUB_PATH
+
       - name: Run tests
         run: make test
