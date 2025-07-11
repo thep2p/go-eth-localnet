@@ -66,20 +66,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Install Go-solc-select
-        run: |
-          go install github.com/fabelx/go-solc-select/cmd/gsolc-select@latest
+      - name: Install solc-select (Python)
+        run: pip install solc-select
       - name: Install and use Solidity 0.8.30
         run: |
-          set -e
-          gsolc-select install 0.8.30
-          gsolc-select use 0.8.30 || (echo "gsolc-select failed; check formatting in its output"; exit 1)
-          export PATH="$HOME/.solc-select/bin:$PATH"
+          solc-select install 0.8.30
+          solc-select use 0.8.30
+          echo "$HOME/.solc-select/bin" >> $GITHUB_PATH
           which solc
           solc --version
       - name: Add solc-select to PATH for later steps
