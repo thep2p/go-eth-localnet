@@ -77,15 +77,11 @@ jobs:
           SOLC_VERSION=0.8.30
           SOLC_COMMIT=73712a01
           mkdir -p ./bin
-          SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc-static-linux"
+          SOLC_URL="https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}+commit.${SOLC_COMMIT}/solc.tar.gz"
           echo "Downloading $SOLC_URL"
-          curl -f -sSL -o ./bin/solc "$SOLC_URL"
+          curl -sSL -o ./bin/solc.tar.gz "$SOLC_URL"
+          tar -xzvf ./bin/solc.tar.gz -C ./bin
           chmod +x ./bin/solc
-          if ! file ./bin/solc | grep -q 'ELF'; then
-            echo "Failed to download a valid solc binary"
-            cat ./bin/solc
-            exit 1
-          fi
           echo "$(pwd)/bin" >> $GITHUB_PATH
           echo "Installed solc version:"
           ./bin/solc --version
