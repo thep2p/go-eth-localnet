@@ -64,7 +64,7 @@ launcher := node.NewLauncher(logger)
 manager := node.NewNodeManager(logger, launcher, "./datadir", testutils.NewPort)
 ctx := context.Background()
 if err := manager.Start(ctx); err != nil {
-log.Fatal(err)
+    log.Fatal(err)
 }
 defer manager.Wait()
 
