@@ -38,20 +38,36 @@ jobs:
       - name: Install golangci-lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v1.64.5/install.sh | sh -s -- -b $GITHUB_WORKSPACE/bin v1.64.5
       - run: $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./...
+
   unittest:
     name: Unit Tests
     strategy:
       fail-fast: false
       matrix:
         go-version:
-          - '1.23'
+          - '1.23' # Specify the Go version to use
     runs-on: ubuntu-latest
+    env:
+      SOLC_VERSION: '0.8.30' # Specify the Solidity compiler version
     steps:
       - name: Check Go Version
         uses: actions/setup-go@v4
         with:
           go-version: ${{matrix.go-version}}
+
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Install solc-select (Python)
+        run: pip install solc-select
+
+      - name: Install and use Solidity
+        run: |
+          solc-select install $SOLC_VERSION
+          solc-select use $SOLC_VERSION
+          echo "$HOME/.solc-select/bin" >> $GITHUB_PATH
+          which solc
+          solc --version
+
       - name: Run tests
         run: make test
