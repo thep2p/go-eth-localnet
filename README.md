@@ -18,7 +18,7 @@ If your Go version is lower than **1.23.10**, please upgrade your Go installatio
 
 ### Solidity
 
-The project uses the Soldity compiler for smart contract development. You can install it using the following command:
+The project uses the Solidity compiler for smart contract development. You can install it using the following command:
 
 ```bash
 brew install solidity
