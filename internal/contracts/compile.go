@@ -44,9 +44,12 @@ func GenerateAbiAndBin(solPath string) (
 	// solc uses the provided file path as part of the map key which may include
 	// an absolute path. Since only one contract is being compiled, return the
 	// first entry.
-	for _, c := range combined.Contracts {
-		return c.Bin, string(c.ABI), nil
+	// Select the contract deterministically by its exact key
+	contract, exists := combined.Contracts[solPath]
+	if !exists {
+		return "", "", fmt.Errorf("contract not found for key: %s", solPath)
 	}
+	return contract.Bin, string(contract.ABI), nil
 
 	return "", "", fmt.Errorf("compiled contract not found")
 }
