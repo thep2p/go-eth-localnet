@@ -9,7 +9,7 @@ import (
 
 // TestCompileFromStr_Success tests the successful compilation of a Solidity contract.
 func TestCompileFromStr_Success(t *testing.T) {
-	bin, abi, err := contracts.GenerateAbiAndBin("TestContract1.sol")
+	bin, abi, err := contracts.GenerateAbiAndBin("SimpleTestContract.sol")
 	require.NoError(t, err)
 	require.NotEmpty(t, bin)
 	require.NotEmpty(t, abi)
