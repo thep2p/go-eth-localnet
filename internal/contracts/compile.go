@@ -10,6 +10,7 @@ import (
 // GenerateAbiAndBin compiles a Solidity contract and returns its ABI and binary code or an error.
 // Args:
 //   - solPath: Path to the Solidity file to compile.
+//
 // Returns:
 //   - contractBin: The binary code of the compiled contract.
 //   - contractABI: The ABI of the compiled contract.
