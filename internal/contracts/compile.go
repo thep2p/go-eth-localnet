@@ -25,9 +25,9 @@ func GenerateAbiAndBin(solPath string) (
 
 	// Step 2: Run solc
 	solcCmd := exec.Command("solc", "--combined-json", "abi,bin", "--metadata-hash", "none", solPath)
-	output, err := solcCmd.Output()
+	output, err := solcCmd.CombinedOutput()
 	if err != nil {
-		return "", "", fmt.Errorf("solc failed: %w", err)
+		return "", "", fmt.Errorf("solc failed: %w\nOutput: %s", err, string(output))
 	}
 
 	// Step 3: Parse solc output
