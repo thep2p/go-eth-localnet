@@ -2,6 +2,8 @@ package node_test
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/thep2p/go-eth-localnet/internal/contracts"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/utils"
 	"math/big"
@@ -275,7 +277,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 		}, node.OperationTimeout, 500*time.Millisecond, "receipt not available",
 	)
 
-	require.Equal(t, "0x1", receipt[model.ReceiptStatus])
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt[model.ReceiptStatus])
 
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
@@ -297,4 +299,290 @@ func TestSimpleETHTransfer(t *testing.T) {
 	expectedB := new(big.Int).Add(balB, txValue)
 	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
+}
+
+// TestRevertingTransaction ensures that a transaction which reverts
+// returns a failed receipt and still consumes gas.
+func TestRevertingTransaction(t *testing.T) {
+	key := testutils.PrivateKeyFixture(t)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
+
+	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(addr, oneEth))
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	var nonceHex string
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&nonceHex,
+			model.EthGetTransactionCount,
+			addr.Hex(),
+			model.EthBlockLatest,
+		),
+	)
+	nonce := testutils.HexToBigInt(t, nonceHex)
+
+	gasLimit := uint64(100000)
+	gasTipCap := big.NewInt(params.GWei)
+	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
+
+	// This transaction is a contract creation (To: nil) with the init code `60006000fd`.
+	// The code corresponds to: PUSH1 0x00; PUSH1 0x00; REVERT.
+	// As a result, the contract constructor unconditionally reverts,
+	// which causes the transaction to fail during execution despite being valid and mined.
+	// This is useful for testing transaction failure paths, but will result in a receipt
+	// with status 0 (failure) and no contract deployed.
+	tx := types.NewTx(
+		&types.DynamicFeeTx{
+			ChainID:   manager.ChainID(),
+			Nonce:     nonce.Uint64(),
+			Gas:       gasLimit,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			To:        nil,
+			Value:     big.NewInt(0),
+			Data:      common.Hex2Bytes("60006000fd"),
+		},
+	)
+
+	// Sign the transaction with the private key
+	signer := types.LatestSignerForChainID(manager.ChainID())
+	signedTx, err := types.SignTx(tx, signer, key)
+	require.NoError(t, err)
+
+	// Marshal the signed transaction to binary format
+	txBytes, err := signedTx.MarshalBinary()
+	require.NoError(t, err)
+
+	// Send the signed transaction to the node and get the transaction hash
+	var txHash common.Hash
+	require.NoError(
+		t,
+		client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)),
+	)
+
+	// Verify that eventually the transaction is included in a block and executed.
+	var receipt map[string]interface{}
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(
+				ctx, &receipt, model.EthGetTransactionReceipt, txHash,
+			); err != nil {
+				return false
+			}
+			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
+		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
+	)
+
+	// The receipt should indicate a failure (status 0) and gas used should be non-zero.
+	require.Equal(t, model.ReceiptTxStatusFailure, receipt[model.ReceiptStatus])
+
+	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
+	require.True(t, ok)
+	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
+	require.NotZero(t, gasUsed.Uint64())
+}
+
+// TestContractDeploymentAndInteraction verifies that a contract can be deployed,
+// interacted with, and emits events as expected.
+func TestContractDeploymentAndInteraction(t *testing.T) {
+	key := testutils.PrivateKeyFixture(t)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
+
+	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(addr, oneEth))
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	var nonceHex string
+	require.NoError(t, client.CallContext(ctx, &nonceHex, model.EthGetTransactionCount, addr.Hex(), model.EthBlockLatest))
+	nonce := testutils.HexToBigInt(t, nonceHex)
+
+	// Set the gas limit, tip cap, and fee cap for the transaction.
+	// We set a gas limit of 1,000,000 which is sufficient for contract deployment.
+	gasLimit := uint64(1_000_000)
+	gasTipCap := big.NewInt(params.GWei)
+	gasFeeCap := new(big.Int).Mul(big.NewInt(2), gasTipCap)
+
+	// Generate the ABI and bytecode for the SimpleStorageContract.
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	bin, abiJSON, err := contracts.GenerateAbiAndBin("../contracts/SimpleStorageContract.sol")
+	require.NoError(t, err, "failed to generate ABI and bytecode for SimpleStorageContract")
+
+	// Deploys the contract using the bytecode.
+	tx := types.NewTx(
+		&types.DynamicFeeTx{
+			ChainID:   manager.ChainID(),
+			Nonce:     nonce.Uint64(),
+			Gas:       gasLimit,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			// To is nil as this is a contract deployment transaction, the signer is the contract creator.
+			// There is no recipient address for contract creation.
+			// We retrieve the contract address from the receipt after the transaction is included in a block.
+			To: nil,
+			// The value is set to 0 as we are not sending any Ether with the contract deployment.
+			Value: big.NewInt(0),
+			Data:  common.FromHex(bin),
+		},
+	)
+
+	// Sign the transaction with the private key of the contract creator.
+	signer := types.LatestSignerForChainID(manager.ChainID())
+	signedTx, err := types.SignTx(tx, signer, key)
+	require.NoError(t, err)
+
+	txBytes, err := signedTx.MarshalBinary()
+	require.NoError(t, err)
+
+	// Send the signed transaction to the node and get the transaction hash.
+	var txHash common.Hash
+	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
+
+	// Eventually the transaction should be included in and a receipt should be available.
+	var receipt map[string]interface{}
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(ctx, &receipt, model.EthGetTransactionReceipt, txHash); err != nil {
+				return false
+			}
+			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
+		}, 5*time.Second, 500*time.Millisecond, "receipt not available",
+	)
+
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt[model.ReceiptStatus])
+
+	addrHex, ok := receipt[model.ReceiptContractAddress].(string)
+	require.True(t, ok)
+	contractAddr := common.HexToAddress(addrHex)
+
+	// Verify that the contract was deployed by checking its bytecode.
+	var code string
+	require.NoError(t, client.CallContext(ctx, &code, model.ReceiptGetByteCode, contractAddr.Hex(), model.EthBlockLatest))
+	// The bytecode should not be empty, indicating the contract was deployed successfully.
+	require.NotEqual(t, model.AccountEmptyContract, code)
+
+	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
+	require.NoError(t, err)
+
+	// Call the `value` function of the SimpleStorageContract to get the initial value (should be 0).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	callData, err := contractABI.Pack("value")
+	require.NoError(t, err)
+
+	// Call the contract to get the current `value` (without sending a transaction).
+	var valHex string
+	require.NoError(
+		t, client.CallContext(
+			ctx, &valHex, model.CallContextEthCall, map[string]string{
+				model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData),
+			}, model.EthBlockLatest,
+		),
+	)
+	val := testutils.HexToBigInt(t, valHex)
+	// The initial value should be 0 since the contract is just deployed.
+	require.Zero(t, val.Int64())
+
+	// Now we will set a new value (e.g., 7) using the `set` function of the contract.
+	// First, we need to get the nonce for the next transaction.
+	var nonceHex2 string
+	require.NoError(t, client.CallContext(ctx, &nonceHex2, model.EthGetTransactionCount, addr.Hex(), model.EthBlockLatest))
+	nonce2 := testutils.HexToBigInt(t, nonceHex2)
+
+	// Prepare the transaction to call the `set` function of the contract with a new value (7).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	setData, err := contractABI.Pack("set", big.NewInt(7))
+	require.NoError(t, err)
+
+	tx2 := types.NewTx(
+		&types.DynamicFeeTx{
+			ChainID:   manager.ChainID(),
+			Nonce:     nonce2.Uint64(),
+			Gas:       gasLimit,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			// To is the contract address we just deployed.
+			To: &contractAddr,
+			// Value is set to 0 as we are not sending any Ether with this transaction.
+			Value: big.NewInt(0),
+			Data:  setData,
+		},
+	)
+
+	// Sign the transaction with the private key of the contract creator.
+	signedTx2, err := types.SignTx(tx2, signer, key)
+	require.NoError(t, err)
+
+	txBytes2, err := signedTx2.MarshalBinary()
+	require.NoError(t, err)
+
+	// Send the signed transaction to the node and get the transaction hash.
+	var txHash2 common.Hash
+	require.NoError(t, client.CallContext(ctx, &txHash2, model.EthSendRawTransaction, utils.ByteToHex(txBytes2)))
+
+	// Eventually the transaction should be included in a block and a receipt should be available.
+	var receipt2 map[string]interface{}
+	require.Eventually(
+		t, func() bool {
+			if err := client.CallContext(ctx, &receipt2, model.EthGetTransactionReceipt, txHash2); err != nil {
+				return false
+			}
+			return receipt2 != nil && receipt2[model.ReceiptBlockNumber] != nil
+		}, 5*time.Second, 500*time.Millisecond, "second receipt not available",
+	)
+	require.Equal(t, model.ReceiptTxStatusSuccess, receipt2[model.ReceiptStatus])
+
+	// After the transaction is included in a block, we can check the new value.
+	// We use the same callData to call the `value` function again.
+	// This is not a transaction, but a call to the contract to get the current value.
+	require.NoError(
+		t, client.CallContext(
+			ctx,
+			&valHex,
+			model.CallContextEthCall,
+			map[string]string{model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData)},
+			model.EthBlockLatest,
+		),
+	)
+	// The value should now be 7, as we set it in the previous transaction.
+	val = testutils.HexToBigInt(t, valHex)
+	require.Equal(t, int64(7), val.Int64())
+
+	// The SimpleStorageContract emits an event when the value is set.
+	// We can check the receipt for logs to verify that the event was emitted.
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	// There should be one log in the receipt, corresponding to the ValueChanged event.
+	logs, ok := receipt2[model.ReceiptLogs].([]interface{})
+	require.True(t, ok)
+	require.Len(t, logs, 1)
+
+	// The log is a map with keys "topics" and "data".
+	logObj, ok := logs[0].(map[string]interface{})
+	require.True(t, ok)
+	topics, ok := logObj[model.ReceiptLogTopics].([]interface{})
+	require.True(t, ok)
+	require.True(t, len(topics) > 0)
+
+	// The first topic is the event signature hash for ValueChanged(uint256).
+	// cf. internal/utils/contracts/SimpleStorageContract.sol
+	eventID := crypto.Keccak256Hash([]byte("ValueChanged(uint256)"))
+	require.Equal(t, eventID.Hex(), topics[0].(string))
+	dataHex, ok := logObj[model.ReceiptLogData].(string)
+	require.True(t, ok)
+
+	// The data field contains the value set in the contract, which should be 7.
+	data := common.FromHex(dataHex)
+	eventVal := new(big.Int).SetBytes(data)
+	require.Equal(t, int64(7), eventVal.Int64())
 }
