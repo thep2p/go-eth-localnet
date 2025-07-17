@@ -48,7 +48,6 @@ install-tools: check-go-version
 		fi; \
 	fi
 	@echo "✅ All tools installed successfully."
-
 # Linting target with a dependency on Go version check
 .PHONY: lint
 lint: check-go-version tidy
