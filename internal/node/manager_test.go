@@ -450,7 +450,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	var txHash common.Hash
 	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
 
-	// Eventually the transaction should be included in and a receipt should be available.
+	// Eventually the transaction should be included in a block and a receipt should be available.
 	var receipt map[string]interface{}
 	require.Eventually(
 		t, func() bool {
