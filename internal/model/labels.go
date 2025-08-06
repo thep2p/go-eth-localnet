@@ -76,6 +76,10 @@ const (
 	// EthWeb3ClientVersion represents the method for retrieving the client version.
 	EthWeb3ClientVersion = "web3_clientVersion"
 
+	// NetPeerCount represents the method for retrieving the number of peers
+	// connected to a node.
+	NetPeerCount = "net_peerCount"
+
 	// AccountEmptyContract represents the default value for an empty contract address "0x".
 	// This is used to indicate that no contract is deployed at the specified address.
 	AccountEmptyContract = "0x"
