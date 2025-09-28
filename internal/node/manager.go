@@ -53,9 +53,36 @@ func NewNodeManager(
 	}
 }
 
-// Start launches a single node and waits until its RPC endpoint is reachable.
-func (m *Manager) Start(ctx context.Context, opts ...LaunchOption) error {
-	return m.StartNode(ctx, true, nil, opts...)
+// Start launches the specified number of nodes. The first node will mine blocks,
+// and subsequent nodes will connect to the first node as peers.
+func (m *Manager) Start(ctx context.Context, nodeCount int, opts ...LaunchOption) error {
+	if nodeCount <= 0 {
+		return fmt.Errorf("node count must be positive, got %d", nodeCount)
+	}
+
+	ctx, m.cancel = context.WithCancel(ctx)
+	go m.handleShutdown(ctx)
+
+	// Start the first node (miner)
+	if err := m.startSingleNode(ctx, true, nil, opts...); err != nil {
+		return fmt.Errorf("failed to start miner node: %w", err)
+	}
+
+	// Get the enode of the first node for peer connections
+	var staticNodes []string
+	if nodeCount > 1 {
+		staticNodes = []string{m.nodes[0].Server().NodeInfo().Enode}
+	}
+
+	// Start additional nodes as peers
+	for i := 1; i < nodeCount; i++ {
+		if err := m.startSingleNode(ctx, false, staticNodes, opts...); err != nil {
+			return fmt.Errorf("failed to start peer node %d: %w", i, err)
+		}
+	}
+
+	m.logger.Info().Int("node_count", nodeCount).Msg("All nodes started successfully")
+	return nil
 }
 
 // StartNode launches a node with the given configuration.
@@ -67,6 +94,11 @@ func (m *Manager) StartNode(ctx context.Context, mine bool, staticNodes []string
 		go m.handleShutdown(ctx)
 	}
 
+	return m.startSingleNode(ctx, mine, staticNodes, opts...)
+}
+
+// startSingleNode is the internal method to start a single node
+func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []string, opts ...LaunchOption) error {
 	priv, err := crypto.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("generate key: %w", err)

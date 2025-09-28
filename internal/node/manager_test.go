@@ -21,9 +21,19 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 )
 
-// startNode initializes and starts a single Geth node for testing with given options.
+// startNode initializes and starts Geth nodes for testing with given options.
+// nodeCount specifies how many nodes to start (default is 1 if not provided).
 // It sets up a temporary directory, a node manager, and ensures RPC readiness before returning.
 func startNode(t *testing.T, opts ...node.LaunchOption) (
+	context.Context,
+	context.CancelFunc,
+	*node.Manager) {
+	return startNodes(t, 1, opts...)
+}
+
+// startNodes initializes and starts the specified number of Geth nodes for testing.
+// It sets up a temporary directory, a node manager, and ensures RPC readiness before returning.
+func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	context.Context,
 	context.CancelFunc,
 	*node.Manager) {
@@ -48,7 +58,7 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (
 		},
 	)
 
-	require.NoError(t, manager.Start(ctx, opts...))
+	require.NoError(t, manager.Start(ctx, nodeCount, opts...))
 	gethNode := manager.GethNode()
 	require.NotNil(t, gethNode)
 
@@ -590,17 +600,14 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 // TestPeerConnectivity verifies that nodes connect to each other and report a
 // peer count greater than zero via the `net_peerCount` RPC method.
 func TestPeerConnectivity(t *testing.T) {
-	ctx, cancel, manager := startNode(t)
+	ctx, cancel, manager := startNodes(t, 2)
 	defer cancel()
 
-	// Get the enode URL of the first node
-	enodeURL := manager.GethNode().Server().NodeInfo().Enode
-
-	// Start a second node that connects to the first node
-	require.NoError(t, manager.StartNode(ctx, false, []string{enodeURL}))
 	require.Equal(t, 2, manager.NodeCount())
 
+	node1 := manager.GetNode(0)
 	node2 := manager.GetNode(1)
+	require.NotNil(t, node1)
 	require.NotNil(t, node2)
 
 	node2Enode := node2.Server().NodeInfo().Enode
