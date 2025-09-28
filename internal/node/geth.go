@@ -30,8 +30,8 @@ const (
 
 // Launcher starts a Geth node, parsing StaticNodes from cfg and adding them to the P2P configuration.
 type Launcher struct {
-	logger       zerolog.Logger
-	minerStarted bool
+	logger     zerolog.Logger
+	minerCount int
 }
 
 // LaunchOption mutates the genesis block before the node starts.
@@ -122,10 +122,10 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		beaconErr error
 	)
 	if cfg.Mine {
-		if l.minerStarted {
-			l.logger.Fatal().Msg("multiple miners are not supported")
+		l.minerCount++
+		if l.minerCount > 1 {
+			l.logger.Warn().Int("miner_count", l.minerCount).Msg("multiple miners detected - only one should produce blocks to avoid conflicts")
 		}
-		l.minerStarted = true
 		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
 	} else {
 		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, common.Address{}, ethService)

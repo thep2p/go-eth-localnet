@@ -73,6 +73,8 @@ Key test utilities in `internal/testutils/`:
 
 ## Development Workflow
 
+**IMPORTANT: Follow all coding best practices listed in AGENTS.md**
+
 1. **Before making changes:**
    - Check Go version meets minimum 1.23.10 requirement
    - Ensure `solc` is installed (version 0.8.30+)
@@ -92,6 +94,9 @@ Key test utilities in `internal/testutils/`:
    - Run `make lint` to ensure code quality
    - Run `make test` to verify all tests pass
    - Ensure new code follows existing patterns
+   - Add or update godoc comments for new/modified functions
+   - Use `gofmt` to format code before committing
+   - Follow Go's idiomatic style and conventions
 
 ## Key Dependencies
 

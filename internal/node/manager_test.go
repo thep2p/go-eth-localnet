@@ -3,7 +3,6 @@ package node_test
 import (
 	"context"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/thep2p/go-eth-localnet/internal/contracts"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/utils"
@@ -591,57 +590,37 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 // TestPeerConnectivity verifies that nodes connect to each other and report a
 // peer count greater than zero via the `net_peerCount` RPC method.
 func TestPeerConnectivity(t *testing.T) {
-	ctx1, cancel1, manager1 := startNode(t)
-	defer cancel1()
+	ctx, cancel, manager := startNode(t)
+	defer cancel()
 
-	enodeURL := manager1.GethNode().Server().NodeInfo().Enode
+	// Get the enode URL of the first node
+	enodeURL := manager.GethNode().Server().NodeInfo().Enode
 
-	// second node configuration
-	launcher2 := node.NewLauncher(testutils.Logger(t))
-	tmp2 := testutils.NewTempDir(t)
-	priv2 := testutils.PrivateKeyFixture(t)
-	cfg2 := model.Config{
-		ID:          enode.PubkeyToIDV4(&priv2.PublicKey),
-		DataDir:     tmp2.Path(),
-		P2PPort:     testutils.NewPort(t),
-		RPCPort:     testutils.NewPort(t),
-		PrivateKey:  priv2,
-		StaticNodes: []string{enodeURL},
-		Mine:        false,
-	}
+	// Start a second node that connects to the first node
+	require.NoError(t, manager.StartNode(ctx, false, []string{enodeURL}))
+	require.Equal(t, 2, manager.NodeCount())
 
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
-	t.Cleanup(tmp2.Remove)
-
-	node2, err := launcher2.Launch(cfg2)
-	require.NoError(t, err)
-
-	go func() {
-		<-ctx2.Done()
-		_ = node2.Close()
-	}()
-
-	testutils.RequireRpcReadyWithinTimeout(t, ctx2, cfg2.RPCPort, node.OperationTimeout)
+	node2 := manager.GetNode(1)
+	require.NotNil(t, node2)
 
 	node2Enode := node2.Server().NodeInfo().Enode
 
-	client1, err := rpc.DialContext(ctx1, utils.LocalAddress(manager1.RPCPort()))
+	client1, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
 	require.NoError(t, err)
 	defer client1.Close()
 
-	client2, err := rpc.DialContext(ctx2, utils.LocalAddress(cfg2.RPCPort))
+	client2, err := rpc.DialContext(ctx, utils.LocalAddress(manager.GetRPCPort(1)))
 	require.NoError(t, err)
 	defer client2.Close()
 
 	// ensure node1 knows about node2
-	require.NoError(t, client1.CallContext(ctx1, nil, "admin_addPeer", node2Enode))
+	require.NoError(t, client1.CallContext(ctx, nil, "admin_addPeer", node2Enode))
 
 	// wait for peer connections
 	require.Eventually(
 		t, func() bool {
 			var count string
-			if err := client1.CallContext(ctx1, &count, model.NetPeerCount); err != nil {
+			if err := client1.CallContext(ctx, &count, model.NetPeerCount); err != nil {
 				return false
 			}
 			return count != "0x0"
