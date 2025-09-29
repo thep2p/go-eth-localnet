@@ -21,16 +21,6 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/testutils"
 )
 
-// startNode initializes and starts Geth nodes for testing with given options.
-// nodeCount specifies how many nodes to start (default is 1 if not provided).
-// It sets up a temporary directory, a node manager, and ensures RPC readiness before returning.
-func startNode(t *testing.T, opts ...node.LaunchOption) (
-	context.Context,
-	context.CancelFunc,
-	*node.Manager) {
-	return startNodes(t, 1, opts...)
-}
-
 // startNodes initializes and starts the specified number of Geth nodes for testing.
 // It sets up a temporary directory, a node manager, and ensures RPC readiness before returning.
 func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
@@ -70,7 +60,7 @@ func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 // TestClientVersion verifies that the node returns a valid
 // identifier for the `web3_clientVersion` RPC call.
 func TestClientVersion(t *testing.T) {
-	ctx, cancel, manager := startNode(t)
+	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
@@ -85,7 +75,7 @@ func TestClientVersion(t *testing.T) {
 
 // TestBlockProduction ensures that the single node produces blocks when mining.
 func TestBlockProduction(t *testing.T) {
-	ctx, cancel, manager := startNode(t)
+	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
 
 	require.Eventually(
@@ -110,7 +100,7 @@ func TestBlockProduction(t *testing.T) {
 
 // TestBlockProductionMonitoring verifies that block numbers advance over time.
 func TestBlockProductionMonitoring(t *testing.T) {
-	ctx, cancel, manager := startNode(t)
+	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
@@ -135,7 +125,7 @@ func TestBlockProductionMonitoring(t *testing.T) {
 // TestPostMergeBlockStructureValidation verifies the structure of blocks post-merge, ensuring
 // PoW-related fields are zero or empty, and block production is functioning correctly.
 func TestPostMergeBlockStructureValidation(t *testing.T) {
-	ctx, cancel, manager := startNode(t)
+	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
@@ -212,7 +202,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(aAddr, oneEth))
+	ctx, cancel, manager := startNodes(t, 1, node.WithPreFundGenesisAccount(aAddr, oneEth))
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
@@ -319,7 +309,7 @@ func TestRevertingTransaction(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(addr, oneEth))
+	ctx, cancel, manager := startNodes(t, 1, node.WithPreFundGenesisAccount(addr, oneEth))
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
@@ -408,7 +398,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
 
-	ctx, cancel, manager := startNode(t, node.WithPreFundGenesisAccount(addr, oneEth))
+	ctx, cancel, manager := startNodes(t, 1, node.WithPreFundGenesisAccount(addr, oneEth))
 	defer cancel()
 
 	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
