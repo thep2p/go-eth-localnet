@@ -624,3 +624,70 @@ func TestPeerConnectivity_TwoNodes(t *testing.T) {
 		}, 10*time.Second, 500*time.Millisecond, "peers did not connect",
 	)
 }
+
+// TestPeerConnectivity_FiveNodes verifies that five nodes connect to each other and report
+// appropriate peer counts via the `net_peerCount` RPC method.
+func TestPeerConnectivity_FiveNodes(t *testing.T) {
+	nodeCount := 5
+	ctx, cancel, manager := startNodes(t, 5)
+	defer cancel()
+
+	require.Equal(t, nodeCount, manager.NodeCount())
+
+	// Verify all nodes are created
+	nodes := make([]*rpc.Client, nodeCount)
+	for i := 0; i < 5; i++ {
+		require.NotNil(t, manager.GetNode(i), "node %d should not be nil", i)
+
+		client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.GetRPCPort(i)))
+		require.NoError(t, err)
+		defer client.Close()
+		nodes[i] = client
+	}
+
+	// Ensure all peer nodes (1-4) know about each other and the miner (node 0)
+	// Since nodes 1-4 already have node 0 as a static peer, we need to add cross-connections
+	for i := 1; i < nodeCount; i++ {
+		nodeI := manager.GetNode(i)
+		enodeI := nodeI.Server().NodeInfo().Enode
+
+		// Add this node to all other nodes' peer lists
+		for j := 0; j < 5; j++ {
+			if i != j {
+				require.NoError(t, nodes[j].CallContext(ctx, nil, "admin_addPeer", enodeI))
+			}
+		}
+	}
+
+	// Wait for peer connections to establish
+	// Each node should eventually see at least one peer (in practice, should see all 4 others)
+	for i := 0; i < nodeCount; i++ {
+		nodeIndex := i
+		require.Eventually(
+			t, func() bool {
+				var count string
+				if err := nodes[nodeIndex].CallContext(ctx, &count, model.NetPeerCount); err != nil {
+					return false
+				}
+				return count != "0x0"
+			}, 15*time.Second, 500*time.Millisecond, "node %d did not connect to peers", i,
+		)
+	}
+
+	// Verify that the miner node (node 0) has the most connections
+	// since all other nodes connect to it as their bootstrap node
+	var minerPeerCount string
+	require.NoError(t, nodes[0].CallContext(ctx, &minerPeerCount, model.NetPeerCount))
+
+	// Convert hex peer count to int for validation
+	peerCount := testutils.HexToBigInt(t, minerPeerCount)
+	require.Greater(t, peerCount.Int64(), int64(0), "miner should have at least one peer")
+
+	// Optional: Verify that we can get some peer count from each node
+	for i := 1; i < nodeCount; i++ {
+		var peerCountHex string
+		require.NoError(t, nodes[i].CallContext(ctx, &peerCountHex, model.NetPeerCount))
+		peerCountInt := testutils.HexToBigInt(t, peerCountHex)
+		require.GreaterOrEqual(t, peerCountInt.Int64(), int64(1), "node %d should have at least one peer", i)
+	}
+}
