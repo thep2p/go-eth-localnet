@@ -587,9 +587,9 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.Equal(t, int64(7), eventVal.Int64())
 }
 
-// TestPeerConnectivity verifies that nodes connect to each other and report a
+// TestPeerConnectivity_TwoNodes verifies that two nodes connect to each other and report a
 // peer count greater than zero via the `net_peerCount` RPC method.
-func TestPeerConnectivity(t *testing.T) {
+func TestPeerConnectivity_TwoNodes(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 2)
 	defer cancel()
 
