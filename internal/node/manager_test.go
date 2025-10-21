@@ -750,7 +750,33 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 	}
 }
 
-// TestSyncStatus verifies that the node reports it is not syncing via eth_syncing RPC call.
+// TestSyncStatus verifies that the node reports it is NOT syncing via eth_syncing RPC call.
+//
+// IMPORTANT: This test is NOT about peer communication (nodes do share blocks with each other).
+// Instead, eth_syncing tells us if a node is downloading historical blocks to catch up.
+//
+// In our local dev network, syncing should NEVER happen because:
+//  1. All nodes start from the same genesis block at time T=0
+//  2. All nodes witness block production in real-time as it happens
+//  3. No node joins late or falls behind needing to "catch up"
+//
+// Think of it like a live sports game:
+//   - Peer communication = commentators describing plays as they happen (normal)
+//   - Block synchronization = watching a recording to catch up on missed quarters (shouldn't happen here)
+//
+// If eth_syncing returns true in our controlled environment, it signals a CRITICAL FAILURE:
+//   - The node believes it's missing blocks (but from where? it was here the whole time!)
+//   - Possible consensus layer/execution layer desynchronization
+//   - Network partition causing the node to miss blocks it should have seen
+//   - The node may be on a minority fork while thinking it needs to catch up
+//
+// This is different from production networks where nodes routinely sync when they:
+//   - First join an existing network (need blocks 0 to current)
+//   - Reconnect after being offline (need blocks missed during downtime)
+//   - Fall behind due to slow processing (need recent blocks)
+//
+// In our case, a syncing node in a network it helped create from genesis indicates something
+// is fundamentally broken with consensus or network communication.
 func TestSyncStatus(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
