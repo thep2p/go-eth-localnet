@@ -26,7 +26,8 @@ import (
 func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	context.Context,
 	context.CancelFunc,
-	*node.Manager) {
+	*node.Manager,
+) {
 	t.Helper()
 
 	tmp := testutils.NewTempDir(t)
@@ -406,7 +407,16 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	defer client.Close()
 
 	var nonceHex string
-	require.NoError(t, client.CallContext(ctx, &nonceHex, model.EthGetTransactionCount, addr.Hex(), model.EthBlockLatest))
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&nonceHex,
+			model.EthGetTransactionCount,
+			addr.Hex(),
+			model.EthBlockLatest,
+		),
+	)
 	nonce := testutils.HexToBigInt(t, nonceHex)
 
 	// Set the gas limit, tip cap, and fee cap for the transaction.
@@ -448,13 +458,21 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 
 	// Send the signed transaction to the node and get the transaction hash.
 	var txHash common.Hash
-	require.NoError(t, client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)))
+	require.NoError(
+		t,
+		client.CallContext(ctx, &txHash, model.EthSendRawTransaction, utils.ByteToHex(txBytes)),
+	)
 
 	// Eventually the transaction should be included in a block and a receipt should be available.
 	var receipt map[string]interface{}
 	require.Eventually(
 		t, func() bool {
-			if err := client.CallContext(ctx, &receipt, model.EthGetTransactionReceipt, txHash); err != nil {
+			if err := client.CallContext(
+				ctx,
+				&receipt,
+				model.EthGetTransactionReceipt,
+				txHash,
+			); err != nil {
 				return false
 			}
 			return receipt != nil && receipt[model.ReceiptBlockNumber] != nil
@@ -469,7 +487,16 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 
 	// Verify that the contract was deployed by checking its bytecode.
 	var code string
-	require.NoError(t, client.CallContext(ctx, &code, model.ReceiptGetByteCode, contractAddr.Hex(), model.EthBlockLatest))
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&code,
+			model.ReceiptGetByteCode,
+			contractAddr.Hex(),
+			model.EthBlockLatest,
+		),
+	)
 	// The bytecode should not be empty, indicating the contract was deployed successfully.
 	require.NotEqual(t, model.AccountEmptyContract, code)
 
@@ -486,7 +513,8 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.NoError(
 		t, client.CallContext(
 			ctx, &valHex, model.CallContextEthCall, map[string]string{
-				model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData),
+				model.CallContextTo:   contractAddr.Hex(),
+				model.CallContextData: utils.ByteToHex(callData),
 			}, model.EthBlockLatest,
 		),
 	)
@@ -497,7 +525,16 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	// Now we will set a new value (e.g., 7) using the `set` function of the contract.
 	// First, we need to get the nonce for the next transaction.
 	var nonceHex2 string
-	require.NoError(t, client.CallContext(ctx, &nonceHex2, model.EthGetTransactionCount, addr.Hex(), model.EthBlockLatest))
+	require.NoError(
+		t,
+		client.CallContext(
+			ctx,
+			&nonceHex2,
+			model.EthGetTransactionCount,
+			addr.Hex(),
+			model.EthBlockLatest,
+		),
+	)
 	nonce2 := testutils.HexToBigInt(t, nonceHex2)
 
 	// Prepare the transaction to call the `set` function of the contract with a new value (7).
@@ -529,13 +566,21 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 
 	// Send the signed transaction to the node and get the transaction hash.
 	var txHash2 common.Hash
-	require.NoError(t, client.CallContext(ctx, &txHash2, model.EthSendRawTransaction, utils.ByteToHex(txBytes2)))
+	require.NoError(
+		t,
+		client.CallContext(ctx, &txHash2, model.EthSendRawTransaction, utils.ByteToHex(txBytes2)),
+	)
 
 	// Eventually the transaction should be included in a block and a receipt should be available.
 	var receipt2 map[string]interface{}
 	require.Eventually(
 		t, func() bool {
-			if err := client.CallContext(ctx, &receipt2, model.EthGetTransactionReceipt, txHash2); err != nil {
+			if err := client.CallContext(
+				ctx,
+				&receipt2,
+				model.EthGetTransactionReceipt,
+				txHash2,
+			); err != nil {
 				return false
 			}
 			return receipt2 != nil && receipt2[model.ReceiptBlockNumber] != nil
@@ -551,7 +596,10 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			ctx,
 			&valHex,
 			model.CallContextEthCall,
-			map[string]string{model.CallContextTo: contractAddr.Hex(), model.CallContextData: utils.ByteToHex(callData)},
+			map[string]string{
+				model.CallContextTo:   contractAddr.Hex(),
+				model.CallContextData: utils.ByteToHex(callData),
+			},
 			model.EthBlockLatest,
 		),
 	)
@@ -666,7 +714,11 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 		require.Eventually(
 			t, func() bool {
 				var count string
-				if err := nodes[nodeIndex].CallContext(ctx, &count, model.NetPeerCount); err != nil {
+				if err := nodes[nodeIndex].CallContext(
+					ctx,
+					&count,
+					model.NetPeerCount,
+				); err != nil {
 					return false
 				}
 				return count != "0x0"
@@ -688,6 +740,75 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 		var peerCountHex string
 		require.NoError(t, nodes[i].CallContext(ctx, &peerCountHex, model.NetPeerCount))
 		peerCountInt := testutils.HexToBigInt(t, peerCountHex)
-		require.GreaterOrEqual(t, peerCountInt.Int64(), int64(1), "node %d should have at least one peer", i)
+		require.GreaterOrEqual(
+			t,
+			peerCountInt.Int64(),
+			int64(1),
+			"node %d should have at least one peer",
+			i,
+		)
 	}
+}
+
+// TestSyncStatus verifies that the node reports it is not syncing via eth_syncing RPC call.
+func TestSyncStatus(t *testing.T) {
+	ctx, cancel, manager := startNodes(t, 1)
+	defer cancel()
+
+	client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.RPCPort()))
+	require.NoError(t, err)
+	defer client.Close()
+
+	// eth_syncing returns either false (not syncing) or an object with sync progress.
+	// For a local dev node that's up-to-date, we expect false or minimal sync activity.
+	var syncStatus interface{}
+	require.NoError(t, client.CallContext(ctx, &syncStatus, model.EthSyncing))
+
+	// The response can be either:
+	// - false (boolean) when not syncing
+	// - nil (when not syncing in some implementations)
+	// - an object with sync progress when syncing
+
+	// If it's nil or false, the node is not syncing
+	if syncStatus == nil {
+		// Node is not syncing (nil response)
+		return
+	}
+
+	// Check if it's a boolean false
+	if syncBool, isBool := syncStatus.(bool); isBool {
+		require.False(t, syncBool, "node should not be syncing (should return false)")
+		return
+	}
+
+	// If it's an object, check if it's actually syncing blocks or just indexing
+	if syncMap, isMap := syncStatus.(map[string]interface{}); isMap {
+		// Extract currentBlock and highestBlock to determine if the node is actively syncing blocks
+		currentBlockHex, hasCurrentBlock := syncMap["currentBlock"].(string)
+		highestBlockHex, hasHighestBlock := syncMap["highestBlock"].(string)
+
+		// If both fields exist and are equal, the node is caught up (not actively syncing blocks)
+		// This may still show sync status due to transaction indexing, which is acceptable
+		if hasCurrentBlock && hasHighestBlock {
+			currentBlock := testutils.HexToBigInt(t, currentBlockHex)
+			highestBlock := testutils.HexToBigInt(t, highestBlockHex)
+
+			// If currentBlock == highestBlock, the node is caught up with the chain
+			// Transaction indexing may still be ongoing, but that's not a sync issue
+			if currentBlock.Cmp(highestBlock) == 0 {
+				// Node is caught up with the chain, not actively syncing blocks
+				return
+			}
+
+			// If currentBlock < highestBlock, the node is actively syncing
+			t.Fatalf(
+				"node is actively syncing blocks (current: %s, highest: %s)",
+				currentBlock,
+				highestBlock,
+			)
+		}
+	}
+
+	// If we can't determine the sync status properly, fail with the raw response
+	t.Fatalf("unexpected sync status response: %+v", syncStatus)
 }
