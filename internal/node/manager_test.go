@@ -58,8 +58,21 @@ func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	return ctx, cancel, manager
 }
 
-// TestClientVersion verifies that the node returns a valid
-// identifier for the `web3_clientVersion` RPC call.
+// TestClientVersion verifies that the node returns a valid client version via web3_clientVersion RPC.
+//
+// This is the most basic health check - like asking "are you there?" to the node.
+// The client version string identifies the software running the node (e.g., "Geth/v1.14.0...").
+//
+// Why this matters:
+//   - Confirms the RPC endpoint is responsive (not crashed/frozen)
+//   - Identifies which Ethereum client software and version is running
+//   - Different clients (Geth, Besu, Nethermind) may have different behaviors
+//   - Version info helps debug compatibility issues
+//
+// If this test fails, nothing else will work - it indicates:
+//   - Node failed to start properly
+//   - RPC port is not accessible
+//   - Critical initialization failure
 func TestClientVersion(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
@@ -74,7 +87,23 @@ func TestClientVersion(t *testing.T) {
 	require.Contains(t, ver, "/")
 }
 
-// TestBlockProduction ensures that the single node produces blocks when mining.
+// TestBlockProduction verifies that the node actively produces new blocks.
+//
+// Blockchain basics: A blockchain is a chain of blocks, each containing transactions.
+// New blocks must be regularly produced to process transactions and advance the chain.
+// In Ethereum, blocks are produced approximately every 12 seconds.
+//
+// This test ensures our local node is:
+//   - Running its consensus mechanism (simulated beacon for development)
+//   - Successfully mining/producing new blocks
+//   - Growing the blockchain beyond the genesis block (block 0)
+//
+// We check if block number reaches at least 3, confirming:
+//   - Genesis block (0) exists
+//   - Node produced block 1, 2, 3... (active block production)
+//
+// If this fails, the blockchain is "frozen" - no transactions can be processed.
+// Common causes: consensus not started, mining disabled, or configuration issues.
 func TestBlockProduction(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
@@ -99,7 +128,25 @@ func TestBlockProduction(t *testing.T) {
 	)
 }
 
-// TestBlockProductionMonitoring verifies that block numbers advance over time.
+// TestBlockProductionMonitoring verifies continuous block production by checking advancement over time.
+//
+// This test captures the "heartbeat" of the blockchain - ensuring blocks keep coming.
+// Unlike TestBlockProduction which just checks if we got past genesis, this monitors
+// ongoing block production to ensure the chain stays alive.
+//
+// The test:
+//  1. Records current block number (snapshot 1)
+//  2. Waits a period of time
+//  3. Checks block number again (snapshot 2)
+//  4. Verifies snapshot 2 > snapshot 1
+//
+// This detects "stalled chain" scenarios where:
+//   - Initial blocks were produced but then stopped
+//   - Consensus mechanism halted after startup
+//   - Network issues preventing block propagation
+//
+// In production, stalled chains mean no transactions can be confirmed,
+// making the entire network unusable even if nodes appear "healthy".
 func TestBlockProductionMonitoring(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
@@ -123,8 +170,27 @@ func TestBlockProductionMonitoring(t *testing.T) {
 	)
 }
 
-// TestPostMergeBlockStructureValidation verifies the structure of blocks post-merge, ensuring
-// PoW-related fields are zero or empty, and block production is functioning correctly.
+// TestPostMergeBlockStructureValidation verifies blocks follow Proof-of-Stake structure after The Merge.
+//
+// Historical context: Ethereum transitioned from Proof-of-Work (PoW) to Proof-of-Stake (PoS)
+// in September 2022, called "The Merge". This changed how blocks are created:
+//   - Before: Miners solved computational puzzles (high "difficulty")
+//   - After: Validators are chosen based on staked ETH (difficulty = 0)
+//
+// This test validates our blocks have proper PoS structure:
+//  1. difficulty == 0x0 (no mining puzzles in PoS)
+//  2. mixHash exists and changes (randomness beacon for validator selection)
+//  3. totalDifficulty matches expected values (cumulative from genesis)
+//
+// Why this matters:
+//   - Ensures we're running post-merge Ethereum (not outdated pre-merge)
+//   - Validates consensus layer integration is working
+//   - Confirms blocks contain required randomness for security
+//
+// If this fails, the node may be:
+//   - Running pre-merge configuration (critical misconfiguration)
+//   - Missing consensus layer connection
+//   - Producing invalid blocks that peers would reject
 func TestPostMergeBlockStructureValidation(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 1)
 	defer cancel()
@@ -191,7 +257,26 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 
 }
 
-// TestSimpleETHTransfer validates basic transaction processing.
+// TestSimpleETHTransfer validates the complete lifecycle of sending cryptocurrency between accounts.
+//
+// Core concept: Ethereum transactions transfer value (ETH) or data between accounts.
+// Every transaction must be signed with the sender's private key (proving ownership).
+//
+// This test performs a real ETH transfer:
+//  1. Creates two accounts: A (funded with 1 ETH) and B (empty)
+//  2. A sends 0.1 ETH to B
+//  3. Verifies the transaction is included in a block
+//  4. Confirms balances updated correctly (including gas fees)
+//
+// Transaction components tested:
+//   - Nonce: Prevents replay attacks (each transaction has unique number)
+//   - Gas: Fee paid to validators for processing (like postage for mail)
+//   - Value: Amount of ETH being sent
+//   - Signature: Cryptographic proof the owner authorized this
+//
+// This is THE fundamental operation of any blockchain - transferring value.
+// If this fails, the blockchain cannot fulfill its primary purpose as a
+// decentralized ledger for value transfer.
 func TestSimpleETHTransfer(t *testing.T) {
 	// Creates two accounts with 1 ETH each, sends a transaction from one to the other,
 	// Accounts A and B.
@@ -302,8 +387,24 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
 }
 
-// TestRevertingTransaction ensures that a transaction which reverts
-// returns a failed receipt and still consumes gas.
+// TestRevertingTransaction verifies that failed transactions are handled correctly by the network.
+//
+// Not all transactions succeed - some fail by design (like requiring conditions not met).
+// The blockchain must handle failures gracefully while still charging for the attempt.
+//
+// This test deploys a "always-fail" smart contract:
+//   - Contract code: PUSH 0, PUSH 0, REVERT (always reverts/fails)
+//   - Transaction gets included in a block (miners/validators still process it)
+//   - Status shows failure (status = 0x0)
+//   - Gas is still consumed (computational work was done)
+//
+// Why failed transactions still cost gas:
+//   - Prevents denial-of-service attacks (can't spam free failing transactions)
+//   - Validators did work checking the transaction, deserve compensation
+//   - Similar to non-refundable processing fees in traditional systems
+//
+// This ensures the network remains economically secure even when processing
+// invalid operations, and that applications can detect and handle failures.
 func TestRevertingTransaction(t *testing.T) {
 	key := testutils.PrivateKeyFixture(t)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -391,8 +492,32 @@ func TestRevertingTransaction(t *testing.T) {
 	require.NotZero(t, gasUsed.Uint64())
 }
 
-// TestContractDeploymentAndInteraction verifies that a contract can be deployed,
-// interacted with, and emits events as expected.
+// TestContractDeploymentAndInteraction tests the full smart contract lifecycle on the blockchain.
+//
+// Smart contracts are programs that run ON the blockchain itself - like apps on a phone.
+// Once deployed, they live forever at an address and anyone can interact with them.
+//
+// This comprehensive test validates:
+//  1. DEPLOYMENT: Uploading contract code to blockchain (like installing an app)
+//  2. VERIFICATION: Contract exists at predicted address with correct bytecode
+//  3. READ: Calling view functions without transactions (free queries)
+//  4. WRITE: Sending transactions to modify contract state (costs gas)
+//  5. EVENTS: Contract emits logs that applications can listen to
+//
+// We use a SimpleStorageContract that:
+//   - Stores a single number
+//   - Has a "set" function to change it
+//   - Has a "value" function to read it
+//   - Emits "ValueChanged" event when updated
+//
+// Smart contracts power:
+//   - DeFi (decentralized finance) protocols
+//   - NFTs and digital ownership
+//   - DAOs (decentralized organizations)
+//   - Any logic that needs to run trustlessly
+//
+// If this test fails, the platform cannot support any decentralized applications,
+// reducing the blockchain to just a simple payment network.
 func TestContractDeploymentAndInteraction(t *testing.T) {
 	key := testutils.PrivateKeyFixture(t)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -635,8 +760,30 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 	require.Equal(t, int64(7), eventVal.Int64())
 }
 
-// TestPeerConnectivity_TwoNodes verifies that two nodes connect to each other and report a
-// peer count greater than zero via the `net_peerCount` RPC method.
+// TestPeerConnectivity_TwoNodes verifies basic peer-to-peer network formation between two nodes.
+//
+// Blockchains are peer-to-peer networks - nodes must connect to share blocks and transactions.
+// Without peer connections, each node is an isolated island, unable to participate in consensus.
+//
+// This test creates a minimal network:
+//  1. Starts two independent nodes
+//  2. Tells node1 about node2's address (like sharing a phone number)
+//  3. Verifies they establish connection
+//  4. Checks both report having at least one peer
+//
+// The connection uses "enode" URLs - unique addresses that identify nodes:
+//
+//	enode://[public-key]@[ip]:[port]
+//	Like: enode://abc123...@127.0.0.1:30303
+//
+// Why peer connectivity matters:
+//   - Blocks must propagate to all nodes for consensus
+//   - Transactions spread through peer gossip
+//   - Isolated nodes can't participate in the network
+//   - Network partition would create competing chains
+//
+// This is the foundation of decentralization - nodes discovering and maintaining
+// connections without central coordination.
 func TestPeerConnectivity_TwoNodes(t *testing.T) {
 	ctx, cancel, manager := startNodes(t, 2)
 	defer cancel()
@@ -673,8 +820,32 @@ func TestPeerConnectivity_TwoNodes(t *testing.T) {
 	)
 }
 
-// TestPeerConnectivity_FiveNodes verifies that five nodes connect to each other and report
-// appropriate peer counts via the `net_peerCount` RPC method.
+// TestPeerConnectivity_FiveNodes validates network formation and mesh topology with multiple nodes.
+//
+// Real blockchain networks have thousands of nodes forming complex mesh topologies.
+// This test simulates a small network to verify our implementation scales beyond simple pairs.
+//
+// Network topology with 5 nodes:
+//   - Node 0: The miner/block producer (all others connect to it)
+//   - Nodes 1-4: Non-mining nodes that sync blocks
+//   - Each node connects to multiple peers for redundancy
+//   - Forms a mesh where information can flow multiple paths
+//
+// The test validates:
+//  1. All 5 nodes start successfully
+//  2. Cross-connections are established (not just star topology)
+//  3. Each node reports having peers
+//  4. The miner node is well-connected (critical for block propagation)
+//
+// Why multi-node testing matters:
+//   - Consensus bugs often appear only with 3+ nodes
+//   - Network partitions become possible with multiple nodes
+//   - Tests gossip protocol efficiency
+//   - Validates that blocks reach all nodes despite complex paths
+//   - Ensures no node becomes isolated as network grows
+//
+// This represents the minimum viable production network - enough nodes for
+// resilience but small enough to test efficiently.
 func TestPeerConnectivity_FiveNodes(t *testing.T) {
 	nodeCount := 5
 	ctx, cancel, manager := startNodes(t, 5)
