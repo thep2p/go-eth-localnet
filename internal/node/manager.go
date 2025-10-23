@@ -90,7 +90,7 @@ func (m *Manager) Start(ctx context.Context, nodeCount int, opts ...LaunchOption
 }
 
 // StartNode launches a single Geth node with the specified configuration.
-// 
+//
 // Parameters:
 //   - ctx: Context for cancellation and timeout.
 //   - mine: If true, the node will mine blocks.
@@ -175,7 +175,7 @@ func (m *Manager) handleShutdown(ctx context.Context) {
 }
 
 // GethNode returns the first running node instance or nil if no nodes are started.
- // For multi-node setups, use GetNode(index) or GethNodes() to access specific nodes.```
+// For multi-node setups, use GetNode(index) or GethNodes() to access specific nodes.```
 func (m *Manager) GethNode() *gethnode.Node {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
