@@ -4,11 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize]
     # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - ".github/workflows/*.yml"
 
 jobs:
   claude-review:
