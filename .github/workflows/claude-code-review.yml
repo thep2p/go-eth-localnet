@@ -3,13 +3,12 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    # Optional: Only run on specific file changes
+    # Only run on Go-related file changes
     paths:
       - "**/*.go"
       - "go.mod"
       - "go.sum"
       - "Makefile"
-      - ".github/workflows/*.yml"
 
 jobs:
   claude-review:
