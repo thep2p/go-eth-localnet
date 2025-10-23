@@ -871,7 +871,7 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 		enodeI := nodeI.Server().NodeInfo().Enode
 
 		// Add this node to all other nodes' peer lists
-		for j := 0; j < 5; j++ {
+		for j := 0; j < nodeCount; j++ {
 			if i != j {
 				require.NoError(t, nodes[j].CallContext(ctx, nil, "admin_addPeer", enodeI))
 			}
