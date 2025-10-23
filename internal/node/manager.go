@@ -162,6 +162,7 @@ func (m *Manager) handleShutdown(ctx context.Context) {
 }
 
 // GethNode returns the first running node instance or nil if no nodes are started.
+ // For multi-node setups, use GetNode(index) or GethNodes() to access specific nodes.```
 func (m *Manager) GethNode() *gethnode.Node {
 	if len(m.nodes) == 0 {
 		return nil
