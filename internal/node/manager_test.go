@@ -818,6 +818,11 @@ func TestPeerConnectivity_TwoNodes(t *testing.T) {
 			return count != "0x0"
 		}, 10*time.Second, 500*time.Millisecond, "peers did not connect",
 	)
+
+	// Verify node2 also sees node1 as a peer (bidirectional connectivity)
+	var count2 string
+	require.NoError(t, client2.CallContext(ctx, &count2, model.NetPeerCount))
+	require.NotEqual(t, "0x0", count2, "node2 should have at least one peer")
 }
 
 // TestPeerConnectivity_FiveNodes validates network formation and mesh topology with multiple nodes.
@@ -855,7 +860,7 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 
 	// Verify all nodes are created
 	nodes := make([]*rpc.Client, nodeCount)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < nodeCount; i++ {
 		require.NotNil(t, manager.GetNode(i), "node %d should not be nil", i)
 
 		client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.GetRPCPort(i)))
@@ -871,7 +876,7 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 		enodeI := nodeI.Server().NodeInfo().Enode
 
 		// Add this node to all other nodes' peer lists
-		for j := 0; j < 5; j++ {
+		for j := 0; j < nodeCount; j++ {
 			if i != j {
 				require.NoError(t, nodes[j].CallContext(ctx, nil, "admin_addPeer", enodeI))
 			}
