@@ -85,9 +85,18 @@ func (m *Manager) Start(ctx context.Context, nodeCount int, opts ...LaunchOption
 	return nil
 }
 
-// StartNode launches a node with the given configuration.
-// mine indicates whether this node should mine blocks.
-// staticNodes contains enode URLs of peers this node should connect to.
+// StartNode launches a single Geth node with the specified configuration.
+// 
+// Parameters:
+//   - ctx: Context for cancellation and timeout.
+//   - mine: If true, the node will mine blocks.
+//   - staticNodes: List of enode URLs for peers to connect to.
+//   - opts: Optional launch options for node configuration.
+//
+// Use StartNode when you need fine-grained control to start individual nodes,
+// rather than starting a group of nodes with Start. Unlike Start, which launches
+// multiple nodes and sets up peer connections automatically, StartNode allows you
+// to launch nodes one at a time with custom settings.
 func (m *Manager) StartNode(ctx context.Context, mine bool, staticNodes []string, opts ...LaunchOption) error {
 	if m.cancel == nil {
 		ctx, m.cancel = context.WithCancel(ctx)
