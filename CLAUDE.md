@@ -106,6 +106,7 @@ Key test utilities in `internal/testutils/`:
 
 ## Current Limitations
 
-- Supports only single-node development mode (multi-node support planned)
+- Multi-node support is available for testing and development
+- Production-grade multi-node orchestration features are still in development
 - Uses simulated beacon instead of full consensus layer
 - Docker mode not yet implemented (in-process only)
