@@ -53,14 +53,50 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            Please review this pull request with focus on go-eth-localnet project-specific requirements.
 
-            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+            ## Go Best Practices & Code Quality
+            - Verify code follows idiomatic Go style and conventions
+            - Check that gofmt has been applied (use `go fmt`)
+            - Ensure meaningful variable and function names
+            - Verify functions are small and focused on single tasks
+            - Check for proper error handling patterns
+
+            ## Documentation Requirements (AGENTS.md)
+            - Verify godoc comments exist for all new/modified exported functions, types, and packages
+            - Check godoc comments for new tests explaining what they do and why
+            - Ensure comments explain complex logic or decisions
+            - Validate commit message format (imperative mood, 50 chars or less)
+
+            ## Node Lifecycle Management Patterns (CLAUDE.md)
+            - Verify context-based cancellation patterns are maintained
+            - Check RPC readiness checks are preserved (5-second timeout)
+            - Ensure graceful shutdown handling
+            - Validate data directory management with explicit cleanup in tests
+
+            ## Port & Resource Management
+            - Verify tests use testutils.NewPort() for unique port allocation
+            - Check for proper cleanup using t.Cleanup() registration
+            - Ensure no port conflicts in parallel tests
+
+            ## Testing Requirements
+            - Verify all tests pass: `go test ./...`
+            - Check test coverage is maintained: `go test -cover`
+            - Ensure new code includes corresponding tests
+            - Validate tests follow project helper function patterns (startNode, etc.)
+            - Check smart contract tests validate full compilation workflow
+
+            ## Thread-Safety & Concurrency
+            - Review for race conditions in parallel tests
+            - Verify proper mutex usage and synchronization
+            - Check context cancellation handling
+
+            ## LaunchOption Pattern Compliance
+            - Verify new configuration follows LaunchOption pattern
+            - Check option functions are properly composed
+
+            Use the repository's CLAUDE.md and AGENTS.md for complete style and convention guidance.
+            Be constructive and specific in feedback, referencing file:line for issues found.
 
             Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
 
