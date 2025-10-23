@@ -818,6 +818,11 @@ func TestPeerConnectivity_TwoNodes(t *testing.T) {
 			return count != "0x0"
 		}, 10*time.Second, 500*time.Millisecond, "peers did not connect",
 	)
+
+	// Verify node2 also sees node1 as a peer (bidirectional connectivity)
+	var count2 string
+	require.NoError(t, client2.CallContext(ctx, &count2, model.NetPeerCount))
+	require.NotEqual(t, "0x0", count2, "node2 should have at least one peer")
 }
 
 // TestPeerConnectivity_FiveNodes validates network formation and mesh topology with multiple nodes.
