@@ -855,7 +855,7 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 
 	// Verify all nodes are created
 	nodes := make([]*rpc.Client, nodeCount)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < nodeCount; i++ {
 		require.NotNil(t, manager.GetNode(i), "node %d should not be nil", i)
 
 		client, err := rpc.DialContext(ctx, utils.LocalAddress(manager.GetRPCPort(i)))
