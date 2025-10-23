@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -29,6 +30,7 @@ type Manager struct {
 	assignNewPort func() int
 	chainID       *big.Int
 
+	mu       sync.RWMutex
 	nodes    []*gethnode.Node
 	configs  []model.Config
 	shutdown chan struct{}
@@ -71,7 +73,9 @@ func (m *Manager) Start(ctx context.Context, nodeCount int, opts ...LaunchOption
 	// Get the enode of the first node for peer connections
 	var staticNodes []string
 	if nodeCount > 1 {
+		m.mu.RLock()
 		staticNodes = []string{m.nodes[0].Server().NodeInfo().Enode}
+		m.mu.RUnlock()
 	}
 
 	// Start additional nodes as peers
@@ -113,7 +117,9 @@ func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []
 		return fmt.Errorf("generate key: %w", err)
 	}
 
+	m.mu.RLock()
 	nodeIndex := len(m.nodes)
+	m.mu.RUnlock()
 	cfg := model.Config{
 		ID:          enode.PubkeyToIDV4(&priv.PublicKey),
 		DataDir:     filepath.Join(m.baseDataDir, fmt.Sprintf("node%d", nodeIndex)),
@@ -129,8 +135,10 @@ func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []
 		return fmt.Errorf("launch node %d: %w", nodeIndex, err)
 	}
 
+	m.mu.Lock()
 	m.nodes = append(m.nodes, n)
 	m.configs = append(m.configs, cfg)
+	m.mu.Unlock()
 
 	rpcURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.RPCPort)
 	deadline := time.Now().Add(StartupTimeout)
@@ -153,7 +161,12 @@ func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []
 
 func (m *Manager) handleShutdown(ctx context.Context) {
 	<-ctx.Done()
-	for i, n := range m.nodes {
+	m.mu.RLock()
+	nodes := make([]*gethnode.Node, len(m.nodes))
+	copy(nodes, m.nodes)
+	m.mu.RUnlock()
+
+	for i, n := range nodes {
 		if err := n.Close(); err != nil {
 			m.logger.Error().Err(err).Int("node_index", i).Msg("failed to close geth node")
 		}
@@ -164,6 +177,8 @@ func (m *Manager) handleShutdown(ctx context.Context) {
 // GethNode returns the first running node instance or nil if no nodes are started.
  // For multi-node setups, use GetNode(index) or GethNodes() to access specific nodes.```
 func (m *Manager) GethNode() *gethnode.Node {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if len(m.nodes) == 0 {
 		return nil
 	}
@@ -172,11 +187,17 @@ func (m *Manager) GethNode() *gethnode.Node {
 
 // GethNodes returns all running node instances.
 func (m *Manager) GethNodes() []*gethnode.Node {
-	return m.nodes
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	nodes := make([]*gethnode.Node, len(m.nodes))
+	copy(nodes, m.nodes)
+	return nodes
 }
 
 // GetNode returns the node at the given index.
 func (m *Manager) GetNode(index int) *gethnode.Node {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if index < 0 || index >= len(m.nodes) {
 		return nil
 	}
@@ -189,6 +210,8 @@ func (m *Manager) ChainID() *big.Int {
 
 // RPCPort returns the RPC port the first node is using.
 func (m *Manager) RPCPort() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if len(m.configs) == 0 {
 		return 0
 	}
@@ -197,6 +220,8 @@ func (m *Manager) RPCPort() int {
 
 // GetRPCPort returns the RPC port for the node at the given index.
 func (m *Manager) GetRPCPort(index int) int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if index < 0 || index >= len(m.configs) {
 		return 0
 	}
@@ -205,6 +230,8 @@ func (m *Manager) GetRPCPort(index int) int {
 
 // NodeCount returns the number of running nodes.
 func (m *Manager) NodeCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return len(m.nodes)
 }
 
