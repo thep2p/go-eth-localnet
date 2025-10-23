@@ -32,6 +32,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: true
+
+      - name: Install solc
+        run: |
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install -y solc
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
