@@ -2,141 +2,64 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+    types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "**/*.go"
+    #   - "**/*.sol"
+    #   - "**/go.mod"
+    #   - "**/go.sum"
 
 jobs:
-  prepare-review:
-    name: Prepare for Claude Review
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch full history for better diff analysis
+          fetch-depth: 1
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
         with:
-          go-version: '1.23.10'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Please review this pull request for the go-eth-localnet project and provide feedback on:
+            - Code quality and Go best practices (idiomatic Go, proper error handling, etc.)
+            - Adherence to project conventions in CLAUDE.md and AGENTS.md
+            - Potential bugs or issues
+            - Performance considerations (especially for node lifecycle and RPC operations)
+            - Security concerns
+            - Test coverage and proper use of testutils patterns
+            - Proper context-based cancellation and cleanup patterns
+            - Thread-safety and concurrency issues
+            - Godoc comments for new/modified exported functions
+            - Code formatting with gofmt
 
-      - name: Install solc
-        run: |
-          pip install solc-select
-          solc-select install 0.8.30
-          solc-select use 0.8.30
+            Key areas to focus on:
+            - Node lifecycle management patterns (startup, shutdown, RPC readiness)
+            - Proper port and directory management using testutils
+            - Context-based cancellation and cleanup
+            - Smart contract compilation and deployment workflows
+            - Test patterns following the established helper function approach
 
-      - name: Install golangci-lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v1.64.5/install.sh | sh -s -- -b $GITHUB_WORKSPACE/bin v1.64.5
+            Use the repository's CLAUDE.md and AGENTS.md for guidance on style and conventions. Be constructive and helpful in your feedback.
 
-      - name: Run linting
-        id: lint
-        continue-on-error: true
-        run: |
-          $GITHUB_WORKSPACE/bin/golangci-lint run --config integration/golangci-lint.yml ./... > lint-output.txt 2>&1 || true
-          if [ -s lint-output.txt ]; then
-            echo "has_issues=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_issues=false" >> $GITHUB_OUTPUT
-          fi
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
 
-      - name: Run tests
-        id: test
-        continue-on-error: true
-        run: |
-          make test > test-output.txt 2>&1
-          TEST_EXIT_CODE=$?
-          echo "exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
-
-      - name: Generate diff summary
-        id: diff
-        run: |
-          git diff origin/${{ github.base_ref }}...HEAD --stat > diff-stats.txt
-          git diff origin/${{ github.base_ref }}...HEAD --name-only > changed-files.txt
-          echo "Changed files:" >> review-context.md
-          cat changed-files.txt >> review-context.md
-          echo "" >> review-context.md
-          echo "Diff statistics:" >> review-context.md
-          cat diff-stats.txt >> review-context.md
-
-      - name: Create review context comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-
-            let reviewContext = '## 🤖 Claude Review Context\n\n';
-            reviewContext += 'This PR is ready for review by Claude Code.\n\n';
-
-            // Add changed files
-            reviewContext += '### Changed Files\n';
-            const changedFiles = fs.readFileSync('changed-files.txt', 'utf8');
-            reviewContext += '```\n' + changedFiles + '```\n\n';
-
-            // Add diff stats
-            reviewContext += '### Diff Statistics\n';
-            const diffStats = fs.readFileSync('diff-stats.txt', 'utf8');
-            reviewContext += '```\n' + diffStats + '```\n\n';
-
-            // Add lint results
-            reviewContext += '### Linting Results\n';
-            try {
-              const lintOutput = fs.readFileSync('lint-output.txt', 'utf8');
-              if (lintOutput.trim()) {
-                reviewContext += '⚠️ Linting issues found:\n```\n' + lintOutput + '```\n\n';
-              } else {
-                reviewContext += '✅ No linting issues found\n\n';
-              }
-            } catch (e) {
-              reviewContext += '✅ No linting issues found\n\n';
-            }
-
-            // Add test results
-            reviewContext += '### Test Results\n';
-            const testExitCode = '${{ steps.test.outputs.exit_code }}';
-            if (testExitCode === '0') {
-              reviewContext += '✅ All tests passed\n\n';
-            } else {
-              reviewContext += '❌ Tests failed\n';
-              try {
-                const testOutput = fs.readFileSync('test-output.txt', 'utf8');
-                reviewContext += '<details><summary>Test output</summary>\n\n```\n' + testOutput + '```\n</details>\n\n';
-              } catch (e) {
-                reviewContext += 'Test output not available\n\n';
-              }
-            }
-
-            // Add review instructions
-            reviewContext += '### For Claude Code Review\n';
-            reviewContext += 'To review this PR with Claude Code, run:\n';
-            reviewContext += '```bash\n';
-            reviewContext += `gh pr checkout ${context.payload.pull_request.number}\n`;
-            reviewContext += `gh pr diff ${context.payload.pull_request.number}\n`;
-            reviewContext += '```\n\n';
-            reviewContext += 'Or use the GitHub CLI to view this PR:\n';
-            reviewContext += '```bash\n';
-            reviewContext += `gh pr view ${context.payload.pull_request.number}\n`;
-            reviewContext += '```\n';
-
-            // Post comment
-            github.rest.issues.createComment({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: reviewContext
-            });
-
-      - name: Add review-ready label
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.addLabels({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['ready-for-claude-review']
-            });
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
