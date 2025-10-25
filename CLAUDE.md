@@ -32,7 +32,7 @@ The codebase follows a single-node development mode architecture with these key 
 
 1. **Node Manager** (`internal/node/manager.go`) - Orchestrates the Geth node lifecycle, handling startup, shutdown, and RPC readiness checks. Uses context-based cancellation for graceful shutdown.
 
-2. **Launcher** (`internal/node/launcher.go`) - Creates and configures Geth nodes with simulated beacon for block production. Embeds nodes in-process using go-ethereum library directly.
+2. **Launcher** (`internal/node/geth.go`) - Creates and configures Geth nodes with simulated beacon for block production. Embeds nodes in-process using go-ethereum library directly.
 
 3. **Configuration Model** (`internal/model/config.go`) - Defines node configuration including ports, data directories, and network settings. Uses chain ID 1337 for local development.
 
