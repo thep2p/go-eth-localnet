@@ -22,23 +22,37 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
 
 2. **Pattern Adherence**: You strictly follow established project patterns:
    - **LaunchOption Pattern**: When adding configuration options, always use `type LaunchOption func(*core.Genesis)`
-   - **Node Lifecycle**: Always use context-based cancellation with proper cleanup via `defer cancel()` and `defer manager.Wait()`
+   - **Node Lifecycle**: Always use context-based cancellation with proper cleanup via `t.Cleanup()` for cancel and timeout-based checks on `manager.Done`
    - **Port Management**: Never hardcode ports; always use `testutils.NewPort()` for thread-safe allocation
    - **Error Handling**: Wrap errors with context using `fmt.Errorf("description: %w", err)`
    - **Resource Management**: Pair every resource allocation with cleanup, using `testutils.NewTempDir(t)` for auto-cleanup
 
 3. **Testing Excellence**: You write comprehensive tests following the project's patterns:
    ```go
-   func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, context.CancelFunc, *node.Manager) {
-       datadir := testutils.NewTempDir(t)
-       port := testutils.NewPort()
-       logger := testutils.Logger(t)
-       launcher := node.NewLauncher(logger, opts...)
-       manager := node.NewNodeManager(logger, launcher, datadir, port)
+   func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
+       context.Context,
+       context.CancelFunc,
+       *node.Manager,
+   ) {
+       t.Helper()
+       tmp := testutils.NewTempDir(t)
+       launcher := node.NewLauncher(testutils.Logger(t))
+       manager := node.NewNodeManager(
+           testutils.Logger(t), launcher, tmp.Path(), func() int {
+               return testutils.NewPort(t)
+           },
+       )
        ctx, cancel := context.WithCancel(context.Background())
-       t.Cleanup(cancel)
-       require.NoError(t, manager.Start(ctx))
-       t.Cleanup(manager.Wait)
+       t.Cleanup(tmp.Remove)
+       t.Cleanup(
+           func() {
+               testutils.RequireCallMustReturnWithinTimeout(
+                   t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
+               )
+           },
+       )
+       require.NoError(t, manager.Start(ctx, nodeCount, opts...))
+       testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
        return ctx, cancel, manager
    }
    ```
