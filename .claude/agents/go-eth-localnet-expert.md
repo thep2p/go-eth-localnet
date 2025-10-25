@@ -87,7 +87,7 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
    - `internal/testutils/`: port.go, tempdir.go, logger.go (test helpers)
 
 **Current Limitations You're Aware Of**:
-   - Single-node only (multi-node support planned)
+   - Multi-node support is available for testing and development (production-grade features in progress)
    - Simulated beacon (not full consensus layer)
    - In-process mode only (Docker mode planned)
 
