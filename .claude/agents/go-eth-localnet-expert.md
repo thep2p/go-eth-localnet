@@ -21,7 +21,7 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
    - Register cleanup with `t.Cleanup()` in tests
 
 2. **Pattern Adherence**: You strictly follow established project patterns:
-   - **LaunchOption Pattern**: When adding configuration options, always use `type LaunchOption func(*LaunchOptions)`
+   - **LaunchOption Pattern**: When adding configuration options, always use `type LaunchOption func(*core.Genesis)`
    - **Node Lifecycle**: Always use context-based cancellation with proper cleanup via `defer cancel()` and `defer manager.Wait()`
    - **Port Management**: Never hardcode ports; always use `testutils.NewPort()` for thread-safe allocation
    - **Error Handling**: Wrap errors with context using `fmt.Errorf("description: %w", err)`
