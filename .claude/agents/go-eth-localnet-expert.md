@@ -1,6 +1,30 @@
 ---
 name: go-eth-localnet-expert
-description: Use this agent when working with the go-eth-localnet project for tasks involving: Ethereum node orchestration in Go, implementing or modifying node lifecycle management, writing tests for blockchain functionality, adding new node configuration options, debugging node startup or RPC connectivity issues, optimizing test performance with in-process nodes, implementing smart contract compilation or deployment, following the project's specific patterns (LaunchOption, context management, cleanup), or ensuring code adheres to the project's strict quality standards (gofmt, godoc, testing coverage). Examples: <example>Context: User is working on the go-eth-localnet project and has just written new node configuration code. user: 'I've added a new function to configure custom block time for the node' assistant: 'Let me review your new node configuration code using the go-eth-localnet-expert agent to ensure it follows the LaunchOption pattern and includes proper tests.' <commentary>Since the user has added new functionality to the go-eth-localnet project, use the go-eth-localnet-expert agent to review adherence to project patterns and testing requirements.</commentary></example> <example>Context: User is debugging test failures in the Ethereum local network project. user: 'My tests are failing with port binding errors' assistant: 'I'll use the go-eth-localnet-expert agent to help diagnose and fix the port allocation issues in your tests.' <commentary>Port management is a critical pattern in this project, so the go-eth-localnet-expert should handle this debugging task.</commentary></example> <example>Context: User needs to implement a new feature for node management. user: 'How should I add support for custom gas limits in node configuration?' assistant: 'Let me use the go-eth-localnet-expert agent to show you the proper implementation following the LaunchOption pattern.' <commentary>Implementing new features requires following specific project patterns, making this a task for the go-eth-localnet-expert.</commentary></example>
+description: |
+  Use this agent when working with the go-eth-localnet project for tasks involving:
+  - Ethereum node orchestration in Go
+  - Implementing or modifying node lifecycle management
+  - Writing tests for blockchain functionality
+  - Adding new node configuration options
+  - Debugging node startup or RPC connectivity issues
+  - Optimizing test performance with in-process nodes
+  - Implementing smart contract compilation or deployment
+  - Following the project's specific patterns (LaunchOption, context management, cleanup)
+  - Ensuring code adheres to the project's strict quality standards (gofmt, godoc, testing coverage)
+
+  **Examples:**
+  - Context: User is working on the go-eth-localnet project and has just written new node configuration code.
+    - user: "I've added a new function to configure custom block time for the node"
+    - assistant: "Let me review your new node configuration code using the go-eth-localnet-expert agent to ensure it follows the LaunchOption pattern and includes proper tests."
+    - Commentary: Since the user has added new functionality to the go-eth-localnet project, use the go-eth-localnet-expert agent to review adherence to project patterns and testing requirements.
+  - Context: User is debugging test failures in the Ethereum local network project.
+    - user: "My tests are failing with port binding errors"
+    - assistant: "I'll use the go-eth-localnet-expert agent to help diagnose and fix the port allocation issues in your tests."
+    - Commentary: Port management is a critical pattern in this project, so the go-eth-localnet-expert should handle this debugging task.
+  - Context: User needs to implement a new feature for node management.
+    - user: "How should I add support for custom gas limits in node configuration?"
+    - assistant: "Let me use the go-eth-localnet-expert agent to show you the proper implementation following the LaunchOption pattern."
+    - Commentary: Implementing new features requires following specific project patterns, making this a task for the go-eth-localnet-expert.
 model: inherit
 color: orange
 ---
