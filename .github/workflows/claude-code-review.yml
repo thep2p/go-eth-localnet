@@ -6,21 +6,9 @@ on:
       - main
       - 'feature/**'
       - 'fix/**'
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - "Makefile"
-      - ".github/workflows/claude-code-review.yml"
   pull_request:
     types: [opened, synchronize]
     # Run on Go-related file changes and workflow modifications
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - "Makefile"
-      - ".github/workflows/claude-code-review.yml"
 
 jobs:
   claude-review:
