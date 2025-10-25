@@ -1,0 +1,109 @@
+name: Claude Code Review
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+    types: [opened, synchronize]
+    # Run on Go-related file changes and workflow modifications
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: true
+
+      - name: Install solc-select
+        run: pip install solc-select
+
+      - name: Install and use Solidity
+        run: |
+          solc-select install 0.8.30
+          solc-select use 0.8.30
+          echo "$HOME/.solc-select/bin" >> $GITHUB_PATH
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            EVENT: ${{ github.event_name }}
+            ${{ github.event_name == 'pull_request' && format('PR NUMBER: {0}', github.event.pull_request.number) || format('BRANCH: {0}', github.ref_name) }}
+
+            Please review ${{ github.event_name == 'pull_request' && 'this pull request' || 'the recent changes' }} with focus on go-eth-localnet project-specific requirements.
+
+            ## Go Best Practices & Code Quality
+            - Verify code follows idiomatic Go style and conventions
+            - Check that gofmt has been applied (use `go fmt`)
+            - Ensure meaningful variable and function names
+            - Verify functions are small and focused on single tasks
+            - Check for proper error handling patterns
+
+            ## Documentation Requirements (AGENTS.md)
+            - Verify godoc comments exist for all new/modified exported functions, types, and packages
+            - Check godoc comments for new tests explaining what they do and why
+            - Ensure comments explain complex logic or decisions
+            - Validate commit message format (imperative mood, 50 chars or less)
+
+            ## Node Lifecycle Management Patterns (CLAUDE.md)
+            - Verify context-based cancellation patterns are maintained
+            - Check RPC readiness checks are preserved (5-second timeout)
+            - Ensure graceful shutdown handling
+            - Validate data directory management with explicit cleanup in tests
+
+            ## Port & Resource Management
+            - Verify tests use testutils.NewPort() for unique port allocation
+            - Check for proper cleanup using t.Cleanup() registration
+            - Ensure no port conflicts in parallel tests
+
+            ## Testing Requirements
+            - Verify all tests pass: `go test ./...`
+            - Check test coverage is maintained: `go test -cover`
+            - Ensure new code includes corresponding tests
+            - Validate tests follow project helper function patterns (startNode, etc.)
+            - Check smart contract tests validate full compilation workflow
+
+            ## Thread-Safety & Concurrency
+            - Review for race conditions in parallel tests
+            - Verify proper mutex usage and synchronization
+            - Check context cancellation handling
+
+            ## LaunchOption Pattern Compliance
+            - Verify new configuration follows LaunchOption pattern
+            - Check option functions are properly composed
+
+            Use the repository's CLAUDE.md and AGENTS.md for complete style and convention guidance.
+            Be constructive and specific in feedback, referencing file:line for issues found.
+
+            ${{ github.event_name == 'pull_request' && 'Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.' || 'Report your findings in the action output. If critical issues are found, exit with an error code.' }}
+
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(make lint:*),Bash(make test:*),Bash(go test:*),Bash(go fmt:*),Bash(gofmt:*)"'
+
