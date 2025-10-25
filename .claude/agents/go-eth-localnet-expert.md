@@ -105,7 +105,7 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
    - testify v1.10.0 (for require/assert)
 
 **Project Structure You Navigate**:
-   - `internal/node/`: manager.go (lifecycle), launcher.go (creation), options.go (configuration)
+   - `internal/node/`: geth.go (launcher and options), manager.go (lifecycle orchestration)
    - `internal/contracts/`: compiler.go (Solidity compilation)
    - `internal/model/`: config.go (configuration models)
    - `internal/testutils/`: port.go, tempdir.go, logger.go (test helpers)
