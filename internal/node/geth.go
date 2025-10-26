@@ -97,9 +97,6 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		nodeCfg.AuthPort = cfg.EnginePort
 		nodeCfg.AuthVirtualHosts = []string{"localhost"}
 		nodeCfg.JWTSecret = cfg.JWTSecretPath
-
-		// Enable Engine API modules on authenticated endpoint
-		nodeCfg.AuthModules = []string{"engine", "eth", "web3", "net", "debug"}
 	}
 
 	stack, err := node.New(nodeCfg)
