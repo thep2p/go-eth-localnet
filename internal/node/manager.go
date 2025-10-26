@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -30,11 +31,12 @@ type Manager struct {
 	assignNewPort func() int
 	chainID       *big.Int
 
-	mu       sync.RWMutex
-	nodes    []*gethnode.Node
-	configs  []model.Config
-	shutdown chan struct{}
-	cancel   context.CancelFunc
+	mu              sync.RWMutex
+	nodes           []*gethnode.Node
+	configs         []model.Config
+	shutdown        chan struct{}
+	cancel          context.CancelFunc
+	enableEngineAPI bool
 }
 
 // NewNodeManager constructs a Manager that will launch multiple nodes.
@@ -128,6 +130,17 @@ func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []
 		PrivateKey:  priv,
 		StaticNodes: staticNodes,
 		Mine:        mine,
+	}
+
+	// Generate JWT secret and configure Engine API if enabled
+	if m.enableEngineAPI {
+		jwtPath, err := GenerateJWTSecret(cfg.DataDir)
+		if err != nil {
+			return fmt.Errorf("generate jwt secret: %w", err)
+		}
+		cfg.JWTSecretPath = jwtPath
+		cfg.EnableEngineAPI = true
+		cfg.EnginePort = m.assignNewPort()
 	}
 
 	n, err := m.launcher.Launch(cfg, opts...)
@@ -239,4 +252,41 @@ func (m *Manager) NodeCount() int {
 // It can be used in tests to ensure the node has stopped before proceeding.
 func (m *Manager) Done() {
 	<-m.shutdown
+}
+
+// EnableEngineAPI enables the Engine API for all nodes managed by this Manager.
+// This must be called before starting any nodes. When enabled, each node will
+// have JWT authentication configured and Engine API endpoints exposed.
+func (m *Manager) EnableEngineAPI() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.enableEngineAPI = true
+}
+
+// GetEnginePort returns the Engine API port for the node at the given index.
+// Returns 0 if the index is invalid or Engine API is not enabled.
+func (m *Manager) GetEnginePort(index int) int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if index < 0 || index >= len(m.configs) {
+		return 0
+	}
+	return m.configs[index].EnginePort
+}
+
+// GetJWTSecret returns the JWT secret for the node at the given index.
+// Returns an error if the index is invalid or the JWT file cannot be read.
+func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
+	m.mu.RLock()
+	jwtPath := ""
+	if index >= 0 && index < len(m.configs) {
+		jwtPath = m.configs[index].JWTSecretPath
+	}
+	m.mu.RUnlock()
+
+	if jwtPath == "" {
+		return nil, fmt.Errorf("invalid node index or JWT not configured")
+	}
+
+	return os.ReadFile(jwtPath)
 }
