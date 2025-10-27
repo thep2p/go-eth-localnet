@@ -284,6 +284,8 @@ func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
 		return nil, fmt.Errorf("node index %d out of range [0, %d)", index, numConfigs)
 	}
 	jwtPath := m.configs[index].JWTSecretPath
+	// Release lock before file I/O to avoid blocking other operations.
+	// JWT files are immutable once created, so the path remains valid.
 	m.mu.RUnlock()
 
 	if jwtPath == "" {

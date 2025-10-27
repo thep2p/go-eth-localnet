@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	// jwtFileName is the name of the file containing the JWT secret for Engine API authentication.
+	jwtFileName = "jwt.hex"
+)
+
 // GenerateJWTSecret creates a 32-byte random JWT secret for Engine API auth.
 // The secret is written to a file named "jwt.hex" in the specified data directory
 // with 0600 permissions for security. The data directory will be created if it
@@ -23,7 +28,7 @@ func GenerateJWTSecret(dataDir string) (string, error) {
 		return "", fmt.Errorf("generate jwt secret: %w", err)
 	}
 
-	jwtPath := filepath.Join(dataDir, "jwt.hex")
+	jwtPath := filepath.Join(dataDir, jwtFileName)
 	content := hex.EncodeToString(secret)
 	if err := os.WriteFile(jwtPath, []byte(content), 0600); err != nil {
 		return "", fmt.Errorf("write jwt secret: %w", err)
