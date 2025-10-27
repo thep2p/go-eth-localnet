@@ -278,14 +278,16 @@ func (m *Manager) GetEnginePort(index int) int {
 // Returns an error if the index is invalid or the JWT file cannot be read.
 func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
 	m.mu.RLock()
-	jwtPath := ""
-	if index >= 0 && index < len(m.configs) {
-		jwtPath = m.configs[index].JWTSecretPath
+	if index < 0 || index >= len(m.configs) {
+		numConfigs := len(m.configs)
+		m.mu.RUnlock()
+		return nil, fmt.Errorf("node index %d out of range [0, %d)", index, numConfigs)
 	}
+	jwtPath := m.configs[index].JWTSecretPath
 	m.mu.RUnlock()
 
 	if jwtPath == "" {
-		return nil, fmt.Errorf("invalid node index or JWT not configured")
+		return nil, fmt.Errorf("JWT not configured for node %d", index)
 	}
 
 	return os.ReadFile(jwtPath)
