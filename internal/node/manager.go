@@ -281,7 +281,7 @@ func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
 	if index < 0 || index >= len(m.configs) {
 		numConfigs := len(m.configs)
 		m.mu.RUnlock()
-		return nil, fmt.Errorf("node index %d out of range [0, %d)", index, numConfigs)
+		return nil, fmt.Errorf("engine api: node index %d out of range [0, %d)", index, numConfigs)
 	}
 	jwtPath := m.configs[index].JWTSecretPath
 	// Release lock before file I/O to avoid blocking other operations.
@@ -289,7 +289,7 @@ func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
 	m.mu.RUnlock()
 
 	if jwtPath == "" {
-		return nil, fmt.Errorf("JWT not configured for node %d", index)
+		return nil, fmt.Errorf("engine api: JWT not configured for node %d", index)
 	}
 
 	return os.ReadFile(jwtPath)
