@@ -26,16 +26,17 @@ type Config struct {
 	Mine bool
 
 	// Engine API configuration for EL-CL communication.
-// EnableEngineAPI determines whether to expose the authenticated Engine API.
-// When true, EnginePort and JWTSecretPath must be configured.
-EnableEngineAPI bool
 
-// EnginePort is the port for authenticated Engine API RPC.
-// Only used when EnableEngineAPI is true.
-EnginePort int
+	// EnableEngineAPI determines whether to expose the authenticated Engine API.
+	// When true, EnginePort and JWTSecretPath must be configured.
+	EnableEngineAPI bool
 
-// JWTSecretPath is the filesystem path to the JWT secret file.
-// The file should contain a 32-byte hex-encoded secret.
-// Only used when EnableEngineAPI is true.
-JWTSecretPath string
+	// EnginePort is the port for authenticated Engine API RPC.
+	// Only used when EnableEngineAPI is true.
+	EnginePort int
+
+	// JWTSecretPath is the filesystem path to the JWT secret file.
+	// The file should contain a 32-byte hex-encoded secret.
+	// Only used when EnableEngineAPI is true.
+	JWTSecretPath string
 }
