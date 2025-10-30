@@ -39,7 +39,7 @@ func TestGenerateJWTSecret_Success(t *testing.T) {
 	require.NoError(t, err, "JWT content should be valid hex")
 
 	// Verify the path points to jwt.hex
-	require.Equal(t, node.JWTFileName, filepath.Base(jwtPath), "JWT file should be named jwt.hex")
+	require.Equal(t, JWTFileName, filepath.Base(jwtPath), "JWT file should be named jwt.hex")
 }
 
 // TestGenerateJWTSecret_CreatesDirectory validates that GenerateJWTSecret

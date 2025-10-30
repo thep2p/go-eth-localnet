@@ -28,7 +28,7 @@ func GenerateJWTSecret(dataDir string) (string, error) {
 		return "", fmt.Errorf("generate jwt secret: %w", err)
 	}
 
-	jwtPath := filepath.Join(dataDir, jwtFileName)
+	jwtPath := filepath.Join(dataDir, JWTFileName)
 	content := hex.EncodeToString(secret)
 	if err := os.WriteFile(jwtPath, []byte(content), 0600); err != nil {
 		return "", fmt.Errorf("write jwt secret: %w", err)
