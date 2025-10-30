@@ -29,7 +29,7 @@ func startNodesWithEngineAPI(t *testing.T, nodeCount int, opts ...node.LaunchOpt
 	)
 
 	// Enable Engine API before starting nodes
-	manager.EnableEngineAPI()
+	require.NoError(t, manager.EnableEngineAPI(), "EnableEngineAPI should succeed")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(tmp.Remove)
