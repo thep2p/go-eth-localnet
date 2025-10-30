@@ -12,7 +12,7 @@ import (
 )
 
 // startNodesWithEngineAPI initializes nodes with Engine API enabled for testing.
-// It wraps the standard startNodes helper and enables Engine API on the manager.
+// This is similar to startNodes but enables Engine API on the manager before starting.
 func startNodesWithEngineAPI(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	context.Context,
 	context.CancelFunc,
