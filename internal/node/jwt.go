@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	// jwtFileName is the name of the file containing the JWT secret for Engine API authentication.
-	jwtFileName = "jwt.hex"
+const (
+    // JWTFileName is the name of the file containing the JWT secret for Engine API authentication.
+    JWTFileName = "jwt.hex"
 )
 
 // GenerateJWTSecret creates a 32-byte random JWT secret for Engine API auth.
