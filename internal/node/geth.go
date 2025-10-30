@@ -91,6 +91,14 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		UseLightweightKDF: true,
 	}
 
+	// Configure authenticated RPC for Engine API if enabled
+	if cfg.EnableEngineAPI {
+		nodeCfg.AuthAddr = "127.0.0.1"
+		nodeCfg.AuthPort = cfg.EnginePort
+		nodeCfg.AuthVirtualHosts = []string{"localhost"}
+		nodeCfg.JWTSecret = cfg.JWTSecretPath
+	}
+
 	stack, err := node.New(nodeCfg)
 	if err != nil {
 		return nil, fmt.Errorf("new node: %w", err)

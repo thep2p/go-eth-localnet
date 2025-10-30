@@ -24,4 +24,19 @@ type Config struct {
 	// Mine determines whether this node should produce blocks using the
 	// simulated beacon. Only one node in the network may enable mining.
 	Mine bool
+
+	// Engine API configuration for EL-CL communication.
+
+	// EnableEngineAPI determines whether to expose the authenticated Engine API.
+	// When true, EnginePort and JWTSecretPath must be configured.
+	EnableEngineAPI bool
+
+	// EnginePort is the port for authenticated Engine API RPC.
+	// Only used when EnableEngineAPI is true.
+	EnginePort int
+
+	// JWTSecretPath is the filesystem path to the JWT secret file.
+	// The file should contain a 32-byte hex-encoded secret.
+	// Only used when EnableEngineAPI is true.
+	JWTSecretPath string
 }
