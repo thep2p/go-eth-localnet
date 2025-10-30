@@ -258,13 +258,13 @@ func (m *Manager) Done() {
 // This must be called before starting any nodes. Returns an error if nodes
 // have already been started.
 func (m *Manager) EnableEngineAPI() error {
-   m.mu.Lock()
-   defer m.mu.Unlock()
-   if len(m.nodes) > 0 {
-       return fmt.Errorf("Engine API must be enabled before starting nodes")
-   }
-   m.enableEngineAPI = true
-   return nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.nodes) > 0 {
+		return fmt.Errorf("Engine API must be enabled before starting nodes")
+	}
+	m.enableEngineAPI = true
+	return nil
 }
 
 // GetEnginePort returns the Engine API port for the node at the given index.
