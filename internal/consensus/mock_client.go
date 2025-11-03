@@ -1,11 +1,13 @@
 package consensus
 
 import (
-	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/thep2p/skipgraph-go/modules"
+	"github.com/thep2p/skipgraph-go/modules/component"
 )
 
 // MockClient is a test implementation of the CL Client interface.
@@ -16,15 +18,19 @@ import (
 type MockClient struct {
 	*BaseClient
 	mockMetrics *Metrics
+	mu          sync.Mutex
 }
 
 // NewMockClient creates a new mock CL client for testing.
 //
 // The mock client simulates a functional CL client with configurable
-// behavior through the provided configuration.
+// behavior through the provided configuration. It becomes ready after
+// a short delay to simulate initialization time.
 func NewMockClient(logger zerolog.Logger, cfg Config) *MockClient {
-	return &MockClient{
-		BaseClient: NewBaseClient(logger, cfg),
+	// Configure logger first
+	compLogger := logger.With().Str("component", fmt.Sprintf("cl-%s", cfg.Client)).Logger()
+
+	m := &MockClient{
 		mockMetrics: &Metrics{
 			CurrentSlot:    1,
 			HeadSlot:       1,
@@ -34,24 +40,28 @@ func NewMockClient(logger zerolog.Logger, cfg Config) *MockClient {
 			ValidatorCount: len(cfg.ValidatorKeys),
 		},
 	}
-}
 
-// Start simulates starting a CL client.
-//
-// The mock client becomes ready after a short delay to simulate
-// initialization time.
-func (m *MockClient) Start(ctx context.Context) error {
-	if err := m.BaseClient.Start(ctx); err != nil {
-		return err
+	// Configure startup logic to simulate readiness after delay
+	startupLogic := func(ctx modules.ThrowableContext) {
+		compLogger.Info().Msg("starting mock consensus client")
+
+		// Start readiness monitoring that succeeds after 100ms
+		readyTime := time.Now().Add(100 * time.Millisecond)
+		m.MonitorReadiness(ctx, func() bool {
+			return time.Now().After(readyTime)
+		})
 	}
 
-	// Simulate readiness after 100ms
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		m.SetReady(true)
-	}()
+	shutdownLogic := func() {
+		compLogger.Info().Msg("shutting down mock consensus client")
+	}
 
-	return nil
+	m.BaseClient = NewBaseClient(logger, cfg,
+		component.WithStartupLogic(startupLogic),
+		component.WithShutdownLogic(shutdownLogic),
+	)
+
+	return m
 }
 
 // ValidatorKeys returns mock validator keys.
@@ -66,9 +76,12 @@ func (m *MockClient) ValidatorKeys() []string {
 // The metrics simulate a healthy, operational CL client with
 // reasonable default values.
 func (m *MockClient) Metrics() (*Metrics, error) {
-	if !m.IsRunning() {
-		return nil, fmt.Errorf("client not running")
+	if !m.IsReady() {
+		return nil, fmt.Errorf("client not ready")
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	// Update metrics to simulate progression
 	m.mockMetrics.CurrentSlot++

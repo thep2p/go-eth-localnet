@@ -1,98 +1,54 @@
 package consensus
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/thep2p/skipgraph-go/modules"
+	"github.com/thep2p/skipgraph-go/modules/component"
 )
 
 // BaseClient provides common functionality for all CL client implementations.
 //
-// BaseClient handles lifecycle management, readiness monitoring, and state
-// tracking. Specific CL client implementations should embed BaseClient and
-// override methods as needed.
+// BaseClient embeds component.Manager to provide lifecycle management following
+// the Component pattern from skipgraph-go. Specific CL client implementations
+// should embed BaseClient and provide startup logic via WithStartupLogic.
 type BaseClient struct {
+	*component.Manager
 	logger zerolog.Logger
 	config Config
 
-	mu      sync.RWMutex
-	running bool
-	ready   bool
-	stopCh  chan struct{}
-	doneCh  chan struct{}
+	mu        sync.RWMutex
+	readyChan chan interface{}
 }
 
 // NewBaseClient creates a new base client instance.
 //
 // The logger will be configured with a component field identifying the client type.
-func NewBaseClient(logger zerolog.Logger, cfg Config) *BaseClient {
-	return &BaseClient{
-		logger: logger.With().Str("component", fmt.Sprintf("cl-%s", cfg.Client)).Logger(),
-		config: cfg,
-		stopCh: make(chan struct{}),
-		doneCh: make(chan struct{}),
-	}
-}
+// Derived types should provide startup and shutdown logic using component.Manager options.
+func NewBaseClient(logger zerolog.Logger, cfg Config, opts ...component.Option) *BaseClient {
+	logger = logger.With().Str("component", fmt.Sprintf("cl-%s", cfg.Client)).Logger()
 
-// Start begins base client operations.
-//
-// This method should be called by derived types after performing their
-// own initialization. It starts background monitoring goroutines.
-func (b *BaseClient) Start(ctx context.Context) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if b.running {
-		return fmt.Errorf("client already running")
+	b := &BaseClient{
+		logger:    logger,
+		config:    cfg,
+		readyChan: make(chan interface{}),
 	}
 
-	b.running = true
-	b.logger.Info().Msg("starting consensus client")
+	// Create component.Manager with provided options
+	b.Manager = component.NewManager(logger, opts...)
 
-	go b.monitorReadiness(ctx)
-
-	return nil
+	return b
 }
 
-// Stop initiates graceful shutdown.
+// Ready returns a channel that is closed when the client is operational.
 //
-// After calling Stop, Wait should be called to ensure all resources
-// are properly cleaned up.
-func (b *BaseClient) Stop() error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if !b.running {
-		return nil
-	}
-
-	b.logger.Info().Msg("stopping consensus client")
-	close(b.stopCh)
-	b.running = false
-	return nil
-}
-
-// Wait blocks until the client is stopped.
-//
-// This ensures all background goroutines have completed and resources
-// have been released.
-func (b *BaseClient) Wait() error {
-	<-b.doneCh
-	b.logger.Info().Msg("consensus client stopped")
-	return nil
-}
-
-// Ready returns true when the client is operational.
-//
-// A client is ready when it has synced sufficiently to participate
-// in consensus operations.
-func (b *BaseClient) Ready() bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.ready
+// This override allows BaseClient to control readiness separately from
+// the component.Manager's readiness, enabling custom readiness logic.
+func (b *BaseClient) Ready() <-chan interface{} {
+	return b.readyChan
 }
 
 // BeaconEndpoint returns the Beacon API endpoint.
@@ -118,57 +74,57 @@ func (b *BaseClient) Logger() zerolog.Logger {
 	return b.logger
 }
 
-// SetReady updates the ready state.
+// SetReady closes the ready channel to signal readiness.
 //
 // This should be called by derived types when they determine the client
 // has achieved readiness (e.g., after syncing completes).
-func (b *BaseClient) SetReady(ready bool) {
+// Can only be called once - subsequent calls are ignored.
+func (b *BaseClient) SetReady() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.ready = ready
-	if ready {
+
+	select {
+	case <-b.readyChan:
+		// Already ready, do nothing
+	default:
 		b.logger.Info().Msg("consensus client is ready")
+		close(b.readyChan)
 	}
 }
 
-// IsRunning returns true if the client is currently running.
-func (b *BaseClient) IsRunning() bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.running
+// IsReady returns true if the client is ready.
+//
+// Checks whether the ready channel has been closed.
+func (b *BaseClient) IsReady() bool {
+	select {
+	case <-b.readyChan:
+		return true
+	default:
+		return false
+	}
 }
 
-// monitorReadiness checks client readiness in a loop.
+// MonitorReadiness starts a background goroutine that checks readiness
+// periodically until the context is cancelled.
 //
-// This method runs in a background goroutine and checks readiness
-// periodically. Derived types should override checkReadiness to
-// implement client-specific readiness checks.
-func (b *BaseClient) monitorReadiness(ctx context.Context) {
-	defer close(b.doneCh)
+// Derived types should call this in their startup logic and provide
+// a checkReadiness function that returns true when the client is ready.
+func (b *BaseClient) MonitorReadiness(ctx modules.ThrowableContext, checkReadiness func() bool) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			b.logger.Debug().Msg("readiness monitor stopped: context cancelled")
-			return
-		case <-b.stopCh:
-			b.logger.Debug().Msg("readiness monitor stopped: stop signal received")
-			return
-		case <-ticker.C:
-			// Check readiness (implement in derived types)
-			b.checkReadiness()
+		for {
+			select {
+			case <-ctx.Done():
+				b.logger.Debug().Msg("readiness monitor stopped: context cancelled")
+				return
+			case <-ticker.C:
+				if checkReadiness() {
+					b.SetReady()
+					return
+				}
+			}
 		}
-	}
-}
-
-// checkReadiness is overridden by specific implementations.
-//
-// The base implementation does nothing. Derived types should override
-// this to perform client-specific readiness checks (e.g., querying
-// the Beacon API for sync status).
-func (b *BaseClient) checkReadiness() {
-	// Override in specific implementations
+	}()
 }

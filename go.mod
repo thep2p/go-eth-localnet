@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
+	github.com/thep2p/skipgraph-go v0.0.0-20251030042839-93be9a0b3cca
 )
 
 require (

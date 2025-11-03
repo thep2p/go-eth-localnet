@@ -5,29 +5,17 @@
 package consensus
 
 import (
-	"context"
+	"github.com/thep2p/skipgraph-go/modules"
 )
 
 // Client represents a Consensus Layer client instance.
 //
-// Client implementations manage the lifecycle of CL clients and provide
-// access to their operational state and metrics.
+// Client implements the Component lifecycle pattern from skipgraph-go,
+// providing structured startup, readiness signaling, and shutdown coordination.
+// Implementations manage CL client processes and provide access to their
+// operational state and metrics.
 type Client interface {
-	// Start begins the CL client's operation.
-	// The provided context controls the client's lifetime.
-	Start(ctx context.Context) error
-
-	// Stop gracefully shuts down the CL client.
-	// After Stop returns, Wait should be called to ensure cleanup completes.
-	Stop() error
-
-	// Wait blocks until the client is fully stopped.
-	// Should be called after Stop to ensure all resources are released.
-	Wait() error
-
-	// Ready returns true when the client is synced and operational.
-	// A client is ready when it can participate in consensus.
-	Ready() bool
+	modules.Component
 
 	// BeaconEndpoint returns the Beacon API endpoint URL.
 	// This endpoint can be used for querying beacon chain state.

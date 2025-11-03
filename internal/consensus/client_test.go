@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/skipgraph-go/modules/throwable"
 )
 
 // TestClientLifecycle verifies the complete lifecycle of a CL client.
@@ -22,15 +23,21 @@ func TestClientLifecycle(t *testing.T) {
 	}
 
 	client := NewMockClient(zerolog.Nop(), cfg)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tctx := throwable.NewContext(ctx)
 
 	// Test Start
-	require.NoError(t, client.Start(ctx), "client should start successfully")
-	require.True(t, client.IsRunning(), "client should be running after start")
+	client.Start(tctx)
 
 	// Test readiness - should become ready within 2 seconds
-	require.Eventually(t, client.Ready, 2*time.Second, 100*time.Millisecond,
-		"client should become ready within timeout")
+	select {
+	case <-client.Ready():
+		// Client is ready
+	case <-time.After(2 * time.Second):
+		t.Fatal("client should become ready within timeout")
+	}
 
 	// Test BeaconEndpoint
 	endpoint := client.BeaconEndpoint()
@@ -44,13 +51,18 @@ func TestClientLifecycle(t *testing.T) {
 	require.Greater(t, metrics.CurrentSlot, uint64(0),
 		"current slot should be greater than 0")
 
-	// Test Stop
-	require.NoError(t, client.Stop(), "client should stop successfully")
-	require.NoError(t, client.Wait(), "wait should complete successfully")
+	// Test shutdown
+	cancel()
+	select {
+	case <-client.Done():
+		// Client stopped successfully
+	case <-time.After(2 * time.Second):
+		t.Fatal("client should stop within timeout")
+	}
 }
 
-// TestClientStartAlreadyRunning verifies that starting an already running
-// client returns an error.
+// TestClientStartAlreadyRunning verifies that starting a client multiple times
+// causes a panic (irrecoverable error) as enforced by the Component pattern.
 func TestClientStartAlreadyRunning(t *testing.T) {
 	cfg := Config{
 		Client:     "mock",
@@ -60,35 +72,27 @@ func TestClientStartAlreadyRunning(t *testing.T) {
 	}
 
 	client := NewMockClient(zerolog.Nop(), cfg)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	require.NoError(t, client.Start(ctx), "first start should succeed")
+	tctx := throwable.NewContext(ctx)
 
-	// Attempt to start again
-	err := client.Start(ctx)
-	require.Error(t, err, "second start should fail")
-	require.Contains(t, err.Error(), "already running",
-		"error should indicate client is already running")
+	// First start should succeed
+	client.Start(tctx)
 
-	// Cleanup
-	require.NoError(t, client.Stop())
-	require.NoError(t, client.Wait())
-}
+	// Component pattern throws an irrecoverable error (panic) on duplicate Start
+	// This is by design to catch programming errors early
+	defer func() {
+		if r := recover(); r != nil {
+			// Expected panic - test passes
+			cancel()
+			return
+		}
+		t.Fatal("expected panic when calling Start twice, but didn't get one")
+	}()
 
-// TestClientStopNotRunning verifies that stopping a non-running client
-// is safe and returns no error.
-func TestClientStopNotRunning(t *testing.T) {
-	cfg := Config{
-		Client:     "mock",
-		DataDir:    t.TempDir(),
-		BeaconPort: 4000,
-		P2PPort:    9000,
-	}
-
-	client := NewMockClient(zerolog.Nop(), cfg)
-
-	// Stop without starting should be safe
-	require.NoError(t, client.Stop(), "stopping non-running client should succeed")
+	// Second start should panic
+	client.Start(tctx)
 }
 
 // TestClientMetricsProgression verifies that metrics update over time.
@@ -101,10 +105,19 @@ func TestClientMetricsProgression(t *testing.T) {
 	}
 
 	client := NewMockClient(zerolog.Nop(), cfg)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	require.NoError(t, client.Start(ctx))
-	require.Eventually(t, client.Ready, 2*time.Second, 100*time.Millisecond)
+	tctx := throwable.NewContext(ctx)
+	client.Start(tctx)
+
+	// Wait for ready
+	select {
+	case <-client.Ready():
+		// Ready
+	case <-time.After(2 * time.Second):
+		t.Fatal("client should become ready")
+	}
 
 	// Get initial metrics
 	metrics1, err := client.Metrics()
@@ -118,13 +131,13 @@ func TestClientMetricsProgression(t *testing.T) {
 		"current slot should increment between metric calls")
 
 	// Cleanup
-	require.NoError(t, client.Stop())
-	require.NoError(t, client.Wait())
+	cancel()
+	<-client.Done()
 }
 
-// TestClientMetricsWhenNotRunning verifies that metrics cannot be retrieved
-// when the client is not running.
-func TestClientMetricsWhenNotRunning(t *testing.T) {
+// TestClientMetricsWhenNotReady verifies that metrics cannot be retrieved
+// when the client is not ready.
+func TestClientMetricsWhenNotReady(t *testing.T) {
 	cfg := Config{
 		Client:     "mock",
 		DataDir:    t.TempDir(),
@@ -136,9 +149,9 @@ func TestClientMetricsWhenNotRunning(t *testing.T) {
 
 	// Attempt to get metrics without starting
 	_, err := client.Metrics()
-	require.Error(t, err, "metrics should fail when client is not running")
-	require.Contains(t, err.Error(), "not running",
-		"error should indicate client is not running")
+	require.Error(t, err, "metrics should fail when client is not ready")
+	require.Contains(t, err.Error(), "not ready",
+		"error should indicate client is not ready")
 }
 
 // TestClientValidatorKeys verifies that validator keys are correctly stored
@@ -172,13 +185,25 @@ func TestClientContextCancellation(t *testing.T) {
 	client := NewMockClient(zerolog.Nop(), cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	require.NoError(t, client.Start(ctx))
-	require.Eventually(t, client.Ready, 2*time.Second, 100*time.Millisecond)
+	tctx := throwable.NewContext(ctx)
+	client.Start(tctx)
+
+	// Wait for ready
+	select {
+	case <-client.Ready():
+		// Ready
+	case <-time.After(2 * time.Second):
+		t.Fatal("client should become ready")
+	}
 
 	// Cancel context
 	cancel()
 
-	// Stop and wait should succeed
-	require.NoError(t, client.Stop())
-	require.NoError(t, client.Wait())
+	// Wait for shutdown
+	select {
+	case <-client.Done():
+		// Stopped successfully
+	case <-time.After(2 * time.Second):
+		t.Fatal("client should stop after context cancellation")
+	}
 }
