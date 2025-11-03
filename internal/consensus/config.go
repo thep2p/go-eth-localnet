@@ -1,0 +1,85 @@
+package consensus
+
+import (
+	"crypto/ecdsa"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+)
+
+// Config holds configuration for a Consensus Layer client.
+//
+// Config defines all parameters needed to launch and run a CL client,
+// including network settings, ports, and validator configuration.
+type Config struct {
+	// Client identifies which CL implementation to use (prysm, lighthouse, nimbus, etc.).
+	Client string
+
+	// DataDir is the directory for CL client data.
+	// The client stores beacon chain data, validator keys, and other persistent state here.
+	DataDir string
+
+	// Network configuration
+
+	// ChainID identifies the Ethereum network (1337 for local development).
+	ChainID uint64
+
+	// GenesisTime is the Unix timestamp when the beacon chain genesis occurred.
+	GenesisTime time.Time
+
+	// GenesisRoot is the hash tree root of the genesis beacon state.
+	GenesisRoot [32]byte
+
+	// Ports
+
+	// BeaconPort is the port for the Beacon API (typically 4000).
+	BeaconPort int
+
+	// P2PPort is the port for P2P networking (typically 9000).
+	P2PPort int
+
+	// RPCPort is the port for gRPC or other RPC services (client-specific).
+	RPCPort int
+
+	// Connection to Execution Layer
+
+	// EngineEndpoint is the Engine API endpoint of the paired EL node.
+	// Format: http://host:port
+	EngineEndpoint string
+
+	// JWTSecret is the JWT secret for Engine API authentication.
+	// Must match the secret used by the paired EL node.
+	JWTSecret []byte
+
+	// P2P configuration
+
+	// Bootnodes are ENR addresses of bootstrap nodes for peer discovery.
+	Bootnodes []string
+
+	// StaticPeers are static peer connections that should always be maintained.
+	StaticPeers []string
+
+	// PrivateKey is the node's P2P identity key.
+	// If nil, a new key will be generated.
+	PrivateKey *ecdsa.PrivateKey
+
+	// Validator configuration
+
+	// ValidatorKeys are validator private keys for block production (testing only).
+	// In production, keys should be managed securely via remote signers.
+	ValidatorKeys []string
+
+	// FeeRecipient is the Ethereum address that receives transaction fees
+	// from blocks proposed by this validator.
+	FeeRecipient common.Address
+
+	// Optional: Checkpoint sync
+
+	// CheckpointSyncURL is a trusted source for checkpoint sync data.
+	// Checkpoint sync allows rapid syncing from a recent finalized checkpoint.
+	CheckpointSyncURL string
+
+	// GenesisStateURL is a URL to fetch the genesis beacon state.
+	// Used for bootstrapping new clients.
+	GenesisStateURL string
+}
