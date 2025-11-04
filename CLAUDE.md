@@ -48,6 +48,29 @@ The codebase follows a single-node development mode architecture with these key 
 - Context cancellation triggers graceful shutdown
 - Data directories are managed with explicit cleanup in tests
 
+**Component Lifecycle Pattern (from skipgraph-go):**
+- Components use `component.Manager` for lifecycle coordination
+- Manager handles Start/Ready/Done signaling automatically
+- Startup logic provided via `component.WithStartupLogic(func(ctx ThrowableContext) {})`
+- Shutdown logic provided via `component.WithShutdownLogic(func() {})`
+- Parent components wait for all children before signaling ready/done
+- Each component can only be started once (enforced by panic)
+- Example:
+  ```go
+  type MyComponent struct {
+      *component.Manager
+  }
+
+  func NewMyComponent() *MyComponent {
+      c := &MyComponent{}
+      c.Manager = component.NewManager(logger,
+          component.WithStartupLogic(c.initialize),
+          component.WithShutdownLogic(c.cleanup),
+      )
+      return c
+  }
+  ```
+
 **Smart Contract Integration:**
 - Contracts are compiled using `solc` command directly (minimum version 0.8.30)
 - Compilation results are parsed from combined JSON output
