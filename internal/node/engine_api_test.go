@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/node"
-	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"github.com/thep2p/go-eth-localnet/internal/unittest"
 )
 
 // startNodesWithEngineAPI initializes nodes with Engine API enabled for testing.
@@ -20,11 +20,11 @@ func startNodesWithEngineAPI(t *testing.T, nodeCount int, opts ...node.LaunchOpt
 ) {
 	t.Helper()
 
-	tmp := testutils.NewTempDir(t)
-	launcher := node.NewLauncher(testutils.Logger(t))
+	tmp := unittest.NewTempDir(t)
+	launcher := node.NewLauncher(unittest.Logger(t))
 	manager := node.NewNodeManager(
-		testutils.Logger(t), launcher, tmp.Path(), func() int {
-			return testutils.NewPort(t)
+		unittest.Logger(t), launcher, tmp.Path(), func() int {
+			return unittest.NewPort(t)
 		},
 	)
 
@@ -35,7 +35,7 @@ func startNodesWithEngineAPI(t *testing.T, nodeCount int, opts ...node.LaunchOpt
 	t.Cleanup(tmp.Remove)
 	t.Cleanup(
 		func() {
-			testutils.RequireCallMustReturnWithinTimeout(
+			unittest.RequireCallMustReturnWithinTimeout(
 				t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
 			)
 		},
@@ -45,7 +45,7 @@ func startNodesWithEngineAPI(t *testing.T, nodeCount int, opts ...node.LaunchOpt
 	gethNode := manager.GethNode()
 	require.NotNil(t, gethNode)
 
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
+	unittest.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
 
 	return ctx, cancel, manager
 }
@@ -86,7 +86,7 @@ func TestEngineAPIEnabled(t *testing.T) {
 
 	// Connect to Engine API with JWT auth
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", enginePort)
-	client, err := testutils.DialEngineAPI(ctx, endpoint, jwtPath)
+	client, err := unittest.DialEngineAPI(ctx, endpoint, jwtPath)
 	require.NoError(t, err, "Should be able to connect to Engine API with JWT auth")
 	defer client.Close()
 
@@ -194,7 +194,7 @@ func TestEngineAPIMultiNode(t *testing.T) {
 		// Verify we can connect to each node's Engine API
 		jwtPath := manager.GetNode(i).Config().JWTSecret
 		endpoint := fmt.Sprintf("http://127.0.0.1:%d", enginePort)
-		client, err := testutils.DialEngineAPI(ctx, endpoint, jwtPath)
+		client, err := unittest.DialEngineAPI(ctx, endpoint, jwtPath)
 		require.NoError(t, err, "Should connect to node %d Engine API", i)
 		client.Close()
 	}
@@ -222,7 +222,7 @@ func TestEngineAPIBackwardCompatibility(t *testing.T) {
 	require.Zero(t, enginePort, "Engine API port should be 0 when not enabled")
 
 	// Verify standard RPC still works
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
+	unittest.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
 
 	// Verify the node can still connect via standard RPC
 	client, err := rpc.DialContext(ctx, fmt.Sprintf("http://127.0.0.1:%d", manager.RPCPort()))

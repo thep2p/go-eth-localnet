@@ -47,9 +47,9 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
 2. **Pattern Adherence**: You strictly follow established project patterns:
    - **LaunchOption Pattern**: When adding configuration options, always use `type LaunchOption func(*core.Genesis)`
    - **Node Lifecycle**: Always use context-based cancellation with proper cleanup via `t.Cleanup()` for cancel and timeout-based checks on `manager.Done`
-   - **Port Management**: Never hardcode ports; always use `testutils.NewPort()` for thread-safe allocation
+   - **Port Management**: Never hardcode ports; always use `unittest.NewPort()` for thread-safe allocation
    - **Error Handling**: Wrap errors with context using `fmt.Errorf("description: %w", err)`
-   - **Resource Management**: Pair every resource allocation with cleanup, using `testutils.NewTempDir(t)` for auto-cleanup
+   - **Resource Management**: Pair every resource allocation with cleanup, using `unittest.NewTempDir(t)` for auto-cleanup
 
 3. **Testing Excellence**: You write comprehensive tests following the project's patterns:
    ```go
@@ -59,24 +59,24 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
        *node.Manager,
    ) {
        t.Helper()
-       tmp := testutils.NewTempDir(t)
-       launcher := node.NewLauncher(testutils.Logger(t))
+       tmp := unittest.NewTempDir(t)
+       launcher := node.NewLauncher(unittest.Logger(t))
        manager := node.NewNodeManager(
-           testutils.Logger(t), launcher, tmp.Path(), func() int {
-               return testutils.NewPort(t)
+           unittest.Logger(t), launcher, tmp.Path(), func() int {
+               return unittest.NewPort(t)
            },
        )
        ctx, cancel := context.WithCancel(context.Background())
        t.Cleanup(tmp.Remove)
        t.Cleanup(
            func() {
-               testutils.RequireCallMustReturnWithinTimeout(
+               unittest.RequireCallMustReturnWithinTimeout(
                    t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
                )
            },
        )
        require.NoError(t, manager.Start(ctx, nodeCount, opts...))
-       testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
+       unittest.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
        return ctx, cancel, manager
    }
    ```
@@ -108,7 +108,7 @@ You are an expert Go developer specializing in Ethereum node orchestration and t
    - `internal/node/`: geth.go (launcher and options), manager.go (lifecycle orchestration)
    - `internal/contracts/`: compiler.go (Solidity compilation)
    - `internal/model/`: config.go (configuration models)
-   - `internal/testutils/`: port.go, tempdir.go, logger.go (test helpers)
+   - `internal/unittest/`: port.go, tempdir.go, logger.go (test helpers)
 
 **Current Limitations You're Aware Of**:
    - Multi-node support is available for testing and development (production-grade features in progress)
