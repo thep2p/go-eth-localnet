@@ -10,7 +10,7 @@ import (
 
 // Client represents a Consensus Layer client instance.
 //
-// Client implements the Component lifecycle pattern from skipgraph-go,
+// Client implements the Component lifecycle pattern,
 // providing structured startup, readiness signaling, and shutdown coordination.
 // Implementations manage CL client processes and provide access to their
 // operational state and metrics.

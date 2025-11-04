@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/model"
 	"github.com/thep2p/go-eth-localnet/internal/node"
-	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"github.com/thep2p/go-eth-localnet/internal/unittest"
 	"os"
 	"testing"
 )
@@ -15,16 +15,16 @@ import (
 // returns a handle with an enode URL.
 func TestSingleNodeLaunch(t *testing.T) {
 	logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
-	tmp := testutils.NewTempDir(t)
-	p2pPort := testutils.NewPort(t)
+	tmp := unittest.NewTempDir(t)
+	p2pPort := unittest.NewPort(t)
 
 	// TODO: use a config fixture if this pattern is repeated
-	privateKey := testutils.PrivateKeyFixture(t)
+	privateKey := unittest.PrivateKeyFixture(t)
 	cfg := model.Config{
 		ID:         enode.PubkeyToIDV4(&privateKey.PublicKey),
 		DataDir:    tmp.Path(),
 		P2PPort:    p2pPort,
-		RPCPort:    testutils.NewPort(t),
+		RPCPort:    unittest.NewPort(t),
 		PrivateKey: privateKey,
 	}
 
@@ -35,7 +35,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 	require.Contains(t, gethNode.Server().NodeInfo().Enode, "enode://")
 
 	defer func() {
-		testutils.RequireCallMustReturnWithinTimeout(
+		unittest.RequireCallMustReturnWithinTimeout(
 			t, func() {
 				err := gethNode.Close()
 				if err != nil {

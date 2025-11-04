@@ -93,7 +93,12 @@ func TestEngineAPIEnabled(t *testing.T) {
 	// Test that engine_exchangeCapabilities is available
 	// This is a basic Engine API method that returns supported capabilities
 	var result []string
-	err = client.CallContext(ctx, &result, "engine_exchangeCapabilities", []string{"engine_newPayloadV1"})
+	err = client.CallContext(
+		ctx,
+		&result,
+		"engine_exchangeCapabilities",
+		[]string{"engine_newPayloadV1"},
+	)
 	// The method should be available even if it returns an error or empty result
 	// What matters is that the endpoint exists and responds
 	require.NoError(t, err, "engine_exchangeCapabilities should be available")

@@ -3,8 +3,6 @@ package consensus
 import (
 	"fmt"
 	"sync"
-
-	"github.com/rs/zerolog"
 )
 
 // Registry manages available CL client launchers.
@@ -90,12 +88,5 @@ func (r *Registry) Unregister(name string) error {
 // DefaultRegistry is the global CL launcher registry.
 //
 // Applications should register their launchers with this registry during
-// initialization. The mock launcher is pre-registered for testing.
+// initialization.
 var DefaultRegistry = NewRegistry()
-
-func init() {
-	// Register mock launcher by default for testing
-	if err := DefaultRegistry.Register("mock", NewMockLauncher(zerolog.Nop())); err != nil {
-		panic(fmt.Sprintf("failed to register mock launcher: %v", err))
-	}
-}

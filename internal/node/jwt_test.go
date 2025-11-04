@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"github.com/thep2p/go-eth-localnet/internal/unittest"
 )
 
 // TestGenerateJWTSecret_Success validates that JWT secret generation works
 // correctly when the data directory exists. This tests the happy path and
 // ensures the JWT file is created with proper content and permissions.
 func TestGenerateJWTSecret_Success(t *testing.T) {
-	tempDir := testutils.NewTempDir(t)
+	tempDir := unittest.NewTempDir(t)
 	defer tempDir.Remove()
 
 	jwtPath, err := GenerateJWTSecret(tempDir.Path())
@@ -46,7 +46,7 @@ func TestGenerateJWTSecret_Success(t *testing.T) {
 // creates the parent directory if it doesn't exist. This is important for
 // ensuring the function can initialize new node data directories.
 func TestGenerateJWTSecret_CreatesDirectory(t *testing.T) {
-	tempDir := testutils.NewTempDir(t)
+	tempDir := unittest.NewTempDir(t)
 	defer tempDir.Remove()
 	dataDir := filepath.Join(tempDir.Path(), "nonexistent", "nested", "dir")
 
@@ -70,9 +70,9 @@ func TestGenerateJWTSecret_CreatesDirectory(t *testing.T) {
 // GenerateJWTSecret produce different secrets. This ensures cryptographic
 // randomness and prevents predictable secrets.
 func TestGenerateJWTSecret_UniqueSecrets(t *testing.T) {
-	tempDir1 := testutils.NewTempDir(t)
+	tempDir1 := unittest.NewTempDir(t)
 	defer tempDir1.Remove()
-	tempDir2 := testutils.NewTempDir(t)
+	tempDir2 := unittest.NewTempDir(t)
 	defer tempDir2.Remove()
 
 	jwtPath1, err := GenerateJWTSecret(tempDir1.Path())
@@ -94,7 +94,7 @@ func TestGenerateJWTSecret_UniqueSecrets(t *testing.T) {
 // multiple times on the same directory overwrites the previous secret.
 // This is important for regenerating secrets when needed.
 func TestGenerateJWTSecret_Idempotency(t *testing.T) {
-	tempDir := testutils.NewTempDir(t)
+	tempDir := unittest.NewTempDir(t)
 	defer tempDir.Remove()
 
 	// Generate first JWT

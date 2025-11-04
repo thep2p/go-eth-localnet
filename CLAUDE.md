@@ -65,11 +65,76 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, contex
 }
 ```
 
-Key test utilities in `internal/testutils/`:
+### Test Organization Convention
+
+**Directory Structure:**
+```
+internal/
+  └── unittest/          # All test utilities and mocks
+      ├── mocks/        # Auto-generated mocks (via mockery)
+      ├── port.go       # Port allocation helpers
+      ├── tempdir.go    # Temporary directory helpers
+      ├── logger.go     # Test logger configuration
+      └── ...           # Other test helpers
+```
+
+**Key test utilities in `internal/unittest/`:**
 - `NewTempDir()` - Creates directories with t.Cleanup() registration
 - `NewPort()` - Thread-safe unique port allocation
 - `Logger()` - Test-specific logger configuration
 - RPC helpers for balance checks and transaction operations
+
+**Generated mocks in `internal/unittest/mocks/`:**
+- All interface mocks auto-generated via mockery
+- Import as: `"github.com/thep2p/go-eth-localnet/internal/unittest/mocks"`
+- Reference as: `mocks.NewMockClient(t)`
+
+### Mocking with testify.Mock
+
+**Generated Mocks**: Interface mocks are generated using `mockery` and `testify/mock` for behavior-driven testing.
+
+**Mock Generation:**
+```bash
+# Install mockery
+go install github.com/vektra/mockery/v2@latest
+
+# Generate mocks (configured in .mockery.yaml)
+mockery
+```
+
+**Using Generated Mocks:**
+```go
+func TestComponent(t *testing.T) {
+    mockClient := mocks.NewMockClient(t)
+
+    // Set expectations
+    mockClient.EXPECT().
+        BeaconEndpoint().
+        Return("http://localhost:4000").
+        Once()
+
+    // Use mock in test
+    endpoint := mockClient.BeaconEndpoint()
+    require.Equal(t, "http://localhost:4000", endpoint)
+}
+```
+
+**Mock Best Practices:**
+- Use `mockery` to auto-generate mocks from interfaces - never write mocks manually
+- Generated mocks live in `internal/unittest/mocks/` alongside other test helpers
+- Test files use `package <package>_test` (e.g., `consensus_test`) to prevent circular imports
+- Use `EXPECT()` method for fluent assertion syntax
+- Always pass `*testing.T` to mock constructors for automatic verification
+- Set expectations BEFORE calling the mocked methods
+- Use `.Once()`, `.Times(n)`, or `.Maybe()` to specify call expectations
+- Use `.Return()` to specify return values
+- Use `.Run()` to execute custom logic during mock calls
+
+**Avoiding Import Cycles:**
+- Mocks live in `unittest/mocks` which imports packages being mocked
+- Tests in `package <name>_test` can import both the package AND `unittest/mocks`
+- This breaks the cycle: `unittest/mocks -> consensus <- consensus_test -> unittest/mocks`
+- All test-related code (helpers + mocks) lives under `internal/unittest/`
 
 ## Development Workflow
 

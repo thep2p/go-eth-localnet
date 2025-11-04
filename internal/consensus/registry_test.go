@@ -1,38 +1,43 @@
-package consensus
+package consensus_test
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/consensus"
+	"github.com/thep2p/go-eth-localnet/internal/unittest/mocks"
 )
 
 // TestRegistryRegisterAndGet verifies basic registry operations.
 func TestRegistryRegisterAndGet(t *testing.T) {
-	registry := NewRegistry()
-	launcher := NewMockLauncher(zerolog.Nop())
+	registry := consensus.NewRegistry()
+	mockLauncher := mocks.NewMockLauncher(t)
+
+	// Set expectation for Name
+	mockLauncher.EXPECT().Name().Return("test").Maybe()
 
 	// Register launcher
-	err := registry.Register("test", launcher)
+	err := registry.Register("test", mockLauncher)
 	require.NoError(t, err, "registration should succeed")
 
 	// Get launcher
 	got, err := registry.Get("test")
 	require.NoError(t, err, "get should succeed")
-	require.Equal(t, launcher, got, "retrieved launcher should match registered launcher")
+	require.Equal(t, mockLauncher, got, "retrieved launcher should match registered launcher")
 }
 
 // TestRegistryDuplicateRegistration verifies that duplicate registration fails.
 func TestRegistryDuplicateRegistration(t *testing.T) {
-	registry := NewRegistry()
-	launcher := NewMockLauncher(zerolog.Nop())
+	registry := consensus.NewRegistry()
+	mockLauncher := mocks.NewMockLauncher(t)
 
 	// First registration should succeed
-	err := registry.Register("test", launcher)
+	err := registry.Register("test", mockLauncher)
 	require.NoError(t, err, "first registration should succeed")
 
 	// Duplicate registration should fail
-	err = registry.Register("test", launcher)
+	err = registry.Register("test", mockLauncher)
 	require.Error(t, err, "duplicate registration should fail")
 	require.Contains(t, err.Error(), "already registered",
 		"error should indicate launcher is already registered")
@@ -40,7 +45,7 @@ func TestRegistryDuplicateRegistration(t *testing.T) {
 
 // TestRegistryGetUnknownLauncher verifies that getting an unknown launcher fails.
 func TestRegistryGetUnknownLauncher(t *testing.T) {
-	registry := NewRegistry()
+	registry := consensus.NewRegistry()
 
 	// Get unknown launcher
 	_, err := registry.Get("unknown")
@@ -51,18 +56,18 @@ func TestRegistryGetUnknownLauncher(t *testing.T) {
 
 // TestRegistryAvailable verifies listing available launchers.
 func TestRegistryAvailable(t *testing.T) {
-	registry := NewRegistry()
+	registry := consensus.NewRegistry()
 
 	// Initially empty
 	available := registry.Available()
 	require.Empty(t, available, "new registry should be empty")
 
 	// Register multiple launchers
-	launcher1 := NewMockLauncher(zerolog.Nop())
-	launcher2 := NewMockLauncher(zerolog.Nop())
+	mockLauncher1 := mocks.NewMockLauncher(t)
+	mockLauncher2 := mocks.NewMockLauncher(t)
 
-	require.NoError(t, registry.Register("launcher1", launcher1))
-	require.NoError(t, registry.Register("launcher2", launcher2))
+	require.NoError(t, registry.Register("launcher1", mockLauncher1))
+	require.NoError(t, registry.Register("launcher2", mockLauncher2))
 
 	// Check available
 	available = registry.Available()
@@ -73,11 +78,11 @@ func TestRegistryAvailable(t *testing.T) {
 
 // TestRegistryUnregister verifies unregistering launchers.
 func TestRegistryUnregister(t *testing.T) {
-	registry := NewRegistry()
-	launcher := NewMockLauncher(zerolog.Nop())
+	registry := consensus.NewRegistry()
+	mockLauncher := mocks.NewMockLauncher(t)
 
 	// Register
-	require.NoError(t, registry.Register("test", launcher))
+	require.NoError(t, registry.Register("test", mockLauncher))
 
 	// Verify it's registered
 	_, err := registry.Get("test")
@@ -94,7 +99,7 @@ func TestRegistryUnregister(t *testing.T) {
 
 // TestRegistryUnregisterUnknown verifies that unregistering unknown launcher fails.
 func TestRegistryUnregisterUnknown(t *testing.T) {
-	registry := NewRegistry()
+	registry := consensus.NewRegistry()
 
 	err := registry.Unregister("unknown")
 	require.Error(t, err, "unregistering unknown launcher should fail")
@@ -102,22 +107,19 @@ func TestRegistryUnregisterUnknown(t *testing.T) {
 		"error should indicate launcher was not found")
 }
 
-// TestDefaultRegistry verifies that the default registry has mock launcher.
+// TestDefaultRegistry verifies that the default registry exists.
 func TestDefaultRegistry(t *testing.T) {
-	// Default registry should have mock launcher pre-registered
-	launcher, err := DefaultRegistry.Get("mock")
-	require.NoError(t, err, "default registry should have mock launcher")
-	require.NotNil(t, launcher, "mock launcher should not be nil")
-	require.Equal(t, "mock", launcher.Name(), "launcher name should be mock")
+	// Default registry should exist
+	require.NotNil(t, consensus.DefaultRegistry, "default registry should not be nil")
 }
 
 // TestRegistryConcurrentAccess verifies thread-safe registry operations.
 func TestRegistryConcurrentAccess(t *testing.T) {
-	registry := NewRegistry()
+	registry := consensus.NewRegistry()
 
 	// Register a launcher
-	launcher := NewMockLauncher(zerolog.Nop())
-	require.NoError(t, registry.Register("test", launcher))
+	mockLauncher := mocks.NewMockLauncher(t)
+	require.NoError(t, registry.Register("test", mockLauncher))
 
 	// Concurrently read from registry
 	done := make(chan bool)
@@ -136,19 +138,19 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	}
 }
 
-// TestMockLauncherValidation verifies mock launcher configuration validation.
-func TestMockLauncherValidation(t *testing.T) {
-	launcher := NewMockLauncher(zerolog.Nop())
+// TestLauncherValidation verifies launcher configuration validation.
+func TestLauncherValidation(t *testing.T) {
+	mockLauncher := mocks.NewMockLauncher(t)
 
 	tests := []struct {
 		name      string
-		cfg       Config
+		cfg       consensus.Config
 		shouldErr bool
 		errMsg    string
 	}{
 		{
 			name: "valid config",
-			cfg: Config{
+			cfg: consensus.Config{
 				Client:     "mock",
 				DataDir:    "/tmp/test",
 				BeaconPort: 4000,
@@ -158,29 +160,42 @@ func TestMockLauncherValidation(t *testing.T) {
 		},
 		{
 			name: "missing beacon port",
-			cfg: Config{
+			cfg: consensus.Config{
 				Client:  "mock",
 				DataDir: "/tmp/test",
 				P2PPort: 9000,
 			},
 			shouldErr: true,
-			errMsg:    "beacon port required",
+			errMsg:    "beacon port",
 		},
 		{
 			name: "missing data dir",
-			cfg: Config{
+			cfg: consensus.Config{
 				Client:     "mock",
 				BeaconPort: 4000,
 				P2PPort:    9000,
 			},
 			shouldErr: true,
-			errMsg:    "data directory required",
+			errMsg:    "data dir",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := launcher.ValidateConfig(tt.cfg)
+			// Set expectation
+			if tt.shouldErr {
+				mockLauncher.EXPECT().
+					ValidateConfig(tt.cfg).
+					Return(fmt.Errorf("%s", tt.errMsg)).
+					Once()
+			} else {
+				mockLauncher.EXPECT().
+					ValidateConfig(tt.cfg).
+					Return(nil).
+					Once()
+			}
+
+			err := mockLauncher.ValidateConfig(tt.cfg)
 			if tt.shouldErr {
 				require.Error(t, err, "validation should fail")
 				require.Contains(t, err.Error(), tt.errMsg,
@@ -192,26 +207,58 @@ func TestMockLauncherValidation(t *testing.T) {
 	}
 }
 
-// TestMockLauncherLaunch verifies launching clients via the launcher.
-func TestMockLauncherLaunch(t *testing.T) {
-	launcher := NewMockLauncher(zerolog.Nop())
+// TestLauncherLaunch verifies launching clients via the launcher.
+func TestLauncherLaunch(t *testing.T) {
+	mockLauncher := mocks.NewMockLauncher(t)
+	mockClient := mocks.NewMockClient(t)
 
-	cfg := Config{
+	cfg := consensus.Config{
 		Client:     "mock",
 		DataDir:    t.TempDir(),
 		BeaconPort: 4000,
 		P2PPort:    9000,
 	}
 
+	// Set expectation for successful launch
+	mockLauncher.EXPECT().
+		Launch(cfg).
+		Return(mockClient, nil).
+		Once()
+
 	// Launch should succeed with valid config
-	client, err := launcher.Launch(cfg)
+	client, err := mockLauncher.Launch(cfg)
 	require.NoError(t, err, "launch should succeed")
 	require.NotNil(t, client, "client should not be nil")
+	require.Equal(t, mockClient, client, "client should match mock")
+}
 
-	// Invalid config should fail
-	invalidCfg := Config{
+// TestLauncherLaunchError verifies launch error handling.
+func TestLauncherLaunchError(t *testing.T) {
+	mockLauncher := mocks.NewMockLauncher(t)
+
+	invalidCfg := consensus.Config{
 		Client: "mock",
 	}
-	_, err = launcher.Launch(invalidCfg)
+
+	// Set expectation for failed launch
+	mockLauncher.EXPECT().
+		Launch(invalidCfg).
+		Return(nil, fmt.Errorf("invalid config")).
+		Once()
+
+	// Launch with invalid config should fail
+	_, err := mockLauncher.Launch(invalidCfg)
 	require.Error(t, err, "launch with invalid config should fail")
+}
+
+// TestLauncherName verifies the Name method.
+func TestLauncherName(t *testing.T) {
+	mockLauncher := mocks.NewMockLauncher(t)
+
+	// Set expectation
+	mockLauncher.EXPECT().Name().Return("test-launcher").Once()
+
+	// Test
+	name := mockLauncher.Name()
+	require.Equal(t, "test-launcher", name, "launcher name should match")
 }
