@@ -35,6 +35,13 @@ Examples from this project:
 - `Update documentation for consensus layer integration`
 - `Remove deprecated launcher options`
 
+**IMPORTANT: Attribution Policy**
+- NEVER add Claude Code attribution (e.g., "🤖 Generated with Claude Code")
+- NEVER add Co-Authored-By lines with Claude as a co-author
+- NEVER add any AI-related metadata to commit messages
+- Commit messages should be simple, clean, and follow only the format above
+- The same rules apply to PR descriptions - no Claude attribution or co-authorship
+
 ## Workflow
 
 1. **Use the Bash tool** to run `git status` and review what files have changed
@@ -47,8 +54,8 @@ Examples from this project:
    - Missing documentation updates
    - Incomplete refactoring (files not properly updated)
 4. **Stage all changes** using `git add .` (or specific files if only partial commit is appropriate)
-5. **Create commit message** following the project's format
-6. **Commit changes** using `git commit -m "Verb + clear description"`
+5. **Create commit message** following the project's format (NO Claude attribution, NO Co-Authored-By lines)
+6. **Commit changes** using `git commit -m "Verb + clear description"` (simple message only, no additional metadata)
 7. **Confirm success** and provide a summary of what was committed
 
 ## Component Guidelines
@@ -89,6 +96,16 @@ Before committing, verify:
 - If changes seem incomplete: Ask the user for confirmation before proceeding
 - If commit fails: Report the error and suggest corrective actions
 - If you're unsure about the scope or type: Ask the user for clarification
+
+## Pull Request Creation
+
+If you are asked to create a pull request:
+- Use `gh pr create` with simple, clean title and body
+- NEVER include Claude Code attribution in PR title or body
+- NEVER add "🤖 Generated with Claude Code" footer
+- NEVER add "Co-Authored-By: Claude" lines
+- Focus on what changed, why it matters, and how to test
+- Keep PR descriptions professional and attribution-free
 
 ## Output Format
 
