@@ -1,6 +1,6 @@
 ---
 name: stage-and-commit
-description: Use this agent when another agent has completed a task that resulted in file changes and those changes are ready to be committed to version control. This agent should be invoked as the final step after any code generation, refactoring, bug fixes, or feature implementation by other agents. Examples:\n\n<example>\nContext: The skipgraph-go-engineer agent just completed implementing a new search optimization feature.\nuser: "Please implement the binary search optimization for node lookup"\nskipgraph-go-engineer: "I've implemented the binary search optimization. The changes include updates to search.go, new tests in search_test.go, and updated documentation."\nassistant: "Now let me use the stage-and-commit agent to commit these changes."\n<task tool invocation to stage-and-commit agent>\n</example>\n\n<example>\nContext: The skipgraph-protocol-architect agent completed a protocol correctness review and the skipgraph-go-engineer made the recommended fixes.\nuser: "Review the skip graph insertion algorithm for correctness"\nskipgraph-protocol-architect: "I've identified three issues with the insertion logic..."\nskipgraph-go-engineer: "I've fixed all three issues identified in the review."\nassistant: "Let me commit these protocol correctness fixes using the stage-and-commit agent."\n<task tool invocation to stage-and-commit agent>\n</example>\n\n<example>\nContext: User requested a test coverage improvement that has been completed.\nuser: "Add integration tests for the network layer"\nskipgraph-go-engineer: "I've added comprehensive integration tests for the network layer in net/network_test.go with 95% coverage."\nassistant: "I'll now stage and commit these test additions."\n<task tool invocation to stage-and-commit agent>\n</example>
+description: Use this agent when another agent has completed a task that resulted in file changes and those changes are ready to be committed to version control. This agent should be invoked as the final step after any code generation, refactoring, bug fixes, or feature implementation by other agents. Examples:\n\n<example>\nContext: The go-lifecycle-manager agent just completed refactoring node management to use Component lifecycle.\nuser: "Please refactor the node manager to use proper lifecycle management"\ngo-lifecycle-manager: "I've refactored the node Manager to use Component lifecycle pattern. The changes include updates to manager.go, new lifecycle tests in manager_test.go, and updated documentation."\nassistant: "Now let me use the stage-and-commit agent to commit these changes."\n<task tool invocation to stage-and-commit agent>\n</example>\n\n<example>\nContext: The go-eth-localnet-expert agent completed implementing Engine API integration.\nuser: "Implement JWT authentication for Engine API"\ngo-eth-localnet-expert: "I've implemented JWT authentication for the Engine API. Changes include updates to internal/node/geth.go, JWT secret management, and comprehensive tests."\nassistant: "Let me commit these Engine API enhancements using the stage-and-commit agent."\n<task tool invocation to stage-and-commit agent>\n</example>\n\n<example>\nContext: User requested consensus layer integration test coverage.\nuser: "Add integration tests for Prysm consensus client"\nassistant: "I've added comprehensive integration tests for the Prysm consensus client in internal/consensus/prysm/integration_test.go with full lifecycle coverage."\nassistant: "I'll now stage and commit these test additions."\n<task tool invocation to stage-and-commit agent>\n</example>
 model: inherit
 color: yellow
 ---
@@ -18,20 +18,22 @@ Your sole responsibility is to stage and commit changes after other agents have 
 
 ## Commit Message Format
 
-You MUST follow this semantic commit format for this project:
-`[type][scope] Summary`
+Follow the conventional commit format used in this project:
+`Verb + clear description`
 
-Where:
-- **type** is one of: `feat`, `improve`, `fix`, `cleanup`, `refactor`, `revert`
-- **scope** (optional) identifies the affected component or area
-- **Summary** is a clear, concise description in present tense
+Guidelines:
+- Start with a verb in present or past tense: `Add`, `Fix`, `Refactor`, `Improve`, `Update`, `Remove`
+- Be clear and concise about what changed
+- Use present tense for most commits (e.g., "Add feature") or past tense for refactorings (e.g., "Refactors component")
+- Optionally include the affected component naturally in the description
 
-Examples:
-- `[feat][network] Add gRPC connection pooling`
-- `[fix][skipgraph] Correct membership vector level calculation`
-- `[improve][test] Add integration tests for search operations`
-- `[refactor][model] Extract shared types to avoid import cycles`
-- `[cleanup][deps] Remove unused dependencies`
+Examples from this project:
+- `Add JWT authentication for Engine API`
+- `Fix consensus client initialization race condition`
+- `Refactors prysm Client to use Component lifecycle pattern`
+- `Improve test coverage for node manager`
+- `Update documentation for consensus layer integration`
+- `Remove deprecated launcher options`
 
 ## Workflow
 
@@ -45,27 +47,31 @@ Examples:
    - Missing documentation updates
    - Incomplete refactoring (files not properly updated)
 4. **Stage all changes** using `git add .` (or specific files if only partial commit is appropriate)
-5. **Create commit message** following the semantic format
-6. **Commit changes** using `git commit -m "[type][scope] Summary"`
+5. **Create commit message** following the project's format
+6. **Commit changes** using `git commit -m "Verb + clear description"`
 7. **Confirm success** and provide a summary of what was committed
 
-## Scope Guidelines
+## Component Guidelines
 
-Common scopes in this project:
-- `network`: Network layer changes
-- `skipgraph`: Core skip graph algorithm changes
-- `model`: Data model changes
+Common components in this project:
+- `node`: Node management and orchestration (internal/node)
+- `consensus`: Consensus layer clients (Prysm, etc.) (internal/consensus)
+- `contracts`: Smart contract compilation and deployment (internal/contracts)
+- `engine`: Engine API and JWT authentication
+- `model`: Configuration and data models (internal/model)
+- `unittest`: Test utilities and helpers (internal/unittest)
 - `test`: Test-only changes
 - `deps`: Dependency management
-- `docs`: Documentation changes
-- `ci`: CI/CD changes
+- `docs`: Documentation changes (CLAUDE.md, README files)
+- `ci`: CI/CD workflows and automation
 
 ## Decision-Making Rules
 
-- **If changes span multiple components**: Choose the most significant scope or use a general scope like `core`
-- **If only tests changed**: Use `[improve][test]` or `[feat][test]` depending on whether adding new tests or improving existing ones
-- **If only documentation changed**: Use `[improve][docs]` or `[feat][docs]`
-- **If refactoring to fix import cycles**: Always use `[refactor]` type with appropriate scope
+- **If changes span multiple components**: Choose the most significant component or keep the description general
+- **If only tests changed**: Use `Add` or `Improve` depending on whether adding new tests or enhancing existing ones (e.g., "Add integration tests for consensus client")
+- **If only documentation changed**: Use `Add` or `Update` (e.g., "Update README for Engine API", "Add documentation for lifecycle management")
+- **If refactoring code**: Use `Refactors` or `Refactor` with the affected component (e.g., "Refactors node manager to use Component pattern")
+- **If fixing a bug**: Use `Fix` or `Fixes` with clear description (e.g., "Fix race condition in RPC readiness check")
 - **If changes are incomplete**: Alert the user and ask for clarification before committing
 
 ## Quality Checks
@@ -95,12 +101,12 @@ Example output:
 ```
 Committed successfully!
 
-Commit message: [feat][network] Add connection retry logic with exponential backoff
+Commit message: Add connection retry logic for consensus clients
 
 Changes committed:
-- 2 files modified: net/network.go, internal/connection.go
-- 1 file added: net/retry_test.go
-- Added retry logic with exponential backoff for network connections
+- 2 files modified: internal/consensus/prysm/client.go, internal/node/manager.go
+- 1 file added: internal/consensus/prysm/retry_test.go
+- Added retry logic with exponential backoff for consensus client connections
 - Comprehensive test coverage for retry scenarios
 ```
 
