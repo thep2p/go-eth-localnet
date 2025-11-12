@@ -1,13 +1,13 @@
 package prysm
 
 import (
-	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
+	"github.com/thep2p/skipgraph-go/modules"
+	"github.com/thep2p/skipgraph-go/modules/component"
 )
 
 const (
@@ -21,20 +21,18 @@ const (
 
 // Client manages a Prysm beacon node and validator client in-process.
 //
-// Client implements the component lifecycle pattern with Start, Stop, Wait,
-// and Ready methods. It handles both beacon node and validator operations,
-// connecting to a paired Geth execution layer node via the Engine API.
+// Client implements the Component lifecycle pattern from skipgraph-go/modules.
+// It handles both beacon node and validator operations, connecting to a paired
+// Geth execution layer node via the Engine API.
+//
+// The Client uses component.Manager for lifecycle management, which provides:
+// - Automatic Ready/Done state tracking
+// - Proper goroutine management
+// - Clean error propagation via ThrowableContext
 type Client struct {
-	logger zerolog.Logger
-	config consensus.Config
-
-	mu      sync.RWMutex
-	started bool
-	stopped bool
-	done    chan struct{}
-	cancel  context.CancelFunc
-	readyCh chan struct{}
-	isReady bool
+	logger  zerolog.Logger
+	config  consensus.Config
+	manager *component.Manager
 
 	// beaconNode is the in-process Prysm beacon chain node.
 	// The beacon node implements the Ethereum consensus protocol,
@@ -55,91 +53,49 @@ type Client struct {
 // The client is not started automatically; call Start to launch the
 // beacon node and validator client. The logger will be enhanced with
 // component-specific fields for structured logging.
+//
+// The returned client uses the Component lifecycle pattern and must be started
+// via Start(ctx) where ctx is a modules.ThrowableContext.
 func NewClient(logger zerolog.Logger, cfg consensus.Config) *Client {
-	return &Client{
-		logger:  logger.With().Str("component", "prysm-client").Logger(),
-		config:  cfg,
-		done:    make(chan struct{}),
-		readyCh: make(chan struct{}),
+	componentLogger := logger.With().Str("component", "prysm-client").Logger()
+
+	client := &Client{
+		logger: componentLogger,
+		config: cfg,
 	}
+
+	// Create component manager with startup logic
+	client.manager = component.NewManager(
+		componentLogger,
+		component.WithStartupLogic(client.startup),
+		component.WithShutdownLogic(client.shutdown),
+	)
+
+	return client
 }
 
 // Start launches the Prysm beacon node and validator client in-process.
 //
-// Start performs the following initialization sequence:
+// Start implements the modules.Startable interface. It performs the following
+// initialization sequence via the component manager:
 // 1. Validates configuration (ports, data directory, Engine API endpoint)
 // 2. Initializes the beacon node with genesis configuration
 // 3. Starts the beacon node and registers lifecycle hooks
 // 4. Initializes and starts the validator client if keys are configured
 // 5. Waits for the beacon API to become ready
 //
-// Start returns immediately after launching background goroutines.
-// Use Ready or WaitForReady to block until the client is operational.
-// Returns an error if already started or if initialization fails.
-func (c *Client) Start(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.started {
-		return fmt.Errorf("prysm client already started")
-	}
-	if c.stopped {
-		return fmt.Errorf("prysm client already stopped")
-	}
-
-	// Validate configuration
+// If any step fails, the error is propagated via ctx.ThrowIrrecoverable().
+// Start must be called only once; calling it multiple times will panic.
+func (c *Client) Start(ctx modules.ThrowableContext) {
+	// Validate configuration before starting
 	if err := c.validateConfig(); err != nil {
-		return fmt.Errorf("invalid config: %w", err)
+		c.logger.Error().Err(err).Msg("Invalid configuration")
+		ctx.ThrowIrrecoverable(fmt.Errorf("invalid config: %w", err))
+		return
 	}
-
-	// Create cancellable context for lifecycle management
-	ctx, c.cancel = context.WithCancel(ctx)
-
-	// Start background initialization
-	c.started = true
-	go c.run(ctx)
 
 	c.logger.Info().Msg("Prysm client starting")
-	return nil
-}
-
-// Stop gracefully shuts down the Prysm beacon node and validator client.
-//
-// Stop cancels the context passed to Start, triggering shutdown of all
-// Prysm components. It waits for cleanup to complete before returning.
-// Multiple calls to Stop are safe; subsequent calls have no effect.
-func (c *Client) Stop() {
-	c.mu.Lock()
-	if c.stopped {
-		c.mu.Unlock()
-		return
-	}
-	c.stopped = true
-	cancel := c.cancel
-	wasStarted := c.started
-	c.mu.Unlock()
-
-	// If never started, close done channel immediately
-	if !wasStarted {
-		close(c.done)
-		return
-	}
-
-	if cancel != nil {
-		cancel()
-	}
-
-	c.logger.Info().Msg("Prysm client stopping")
-	<-c.done
-	c.logger.Info().Msg("Prysm client stopped")
-}
-
-// Wait blocks until the client has fully stopped.
-//
-// Wait should be called after Stop to ensure cleanup is complete.
-// It's safe to call Wait multiple times or before calling Stop.
-func (c *Client) Wait() {
-	<-c.done
+	c.manager.Start(ctx)
 }
 
 // Ready returns a channel that closes when the client is ready to serve requests.
@@ -150,17 +106,18 @@ func (c *Client) Wait() {
 // - Validator client is initialized (if validators are configured)
 //
 // The channel remains closed once ready; it never reopens.
-func (c *Client) Ready() <-chan struct{} {
-	return c.readyCh
+// This method implements the modules.ReadyDoneAware interface.
+func (c *Client) Ready() <-chan interface{} {
+	return c.manager.Ready()
 }
 
-// IsReady returns true if the client is ready to serve requests.
+// Done returns a channel that closes when the client has fully stopped.
 //
-// This is a non-blocking alternative to waiting on the Ready channel.
-func (c *Client) IsReady() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.isReady
+// Done should be used to wait for cleanup to complete after stopping the client.
+// It's safe to call Done multiple times or before calling Start.
+// This method implements the modules.ReadyDoneAware interface.
+func (c *Client) Done() <-chan interface{} {
+	return c.manager.Done()
 }
 
 // validateConfig checks that all required configuration fields are set.
@@ -183,19 +140,21 @@ func (c *Client) validateConfig() error {
 	return nil
 }
 
-// run is the main goroutine that manages the Prysm lifecycle.
-func (c *Client) run(ctx context.Context) {
-	defer close(c.done)
-
+// startup is the initialization logic executed by the component manager.
+// It uses ThrowableContext for clean error propagation - if any step fails,
+// the error is thrown and the application terminates gracefully.
+func (c *Client) startup(ctx modules.ThrowableContext) {
 	// Initialize beacon node
 	if err := c.initBeaconNode(ctx); err != nil {
 		c.logger.Error().Err(err).Msg("Failed to initialize beacon node")
+		ctx.ThrowIrrecoverable(fmt.Errorf("beacon node initialization failed: %w", err))
 		return
 	}
 
 	// Start beacon node
 	if err := c.startBeaconNode(ctx); err != nil {
 		c.logger.Error().Err(err).Msg("Failed to start beacon node")
+		ctx.ThrowIrrecoverable(fmt.Errorf("beacon node startup failed: %w", err))
 		return
 	}
 
@@ -203,6 +162,7 @@ func (c *Client) run(ctx context.Context) {
 	if len(c.config.ValidatorKeys) > 0 {
 		if err := c.initValidator(ctx); err != nil {
 			c.logger.Error().Err(err).Msg("Failed to initialize validator")
+			ctx.ThrowIrrecoverable(fmt.Errorf("validator initialization failed: %w", err))
 			return
 		}
 	}
@@ -210,26 +170,15 @@ func (c *Client) run(ctx context.Context) {
 	// Wait for beacon API to be ready
 	if err := c.waitForBeaconAPI(ctx); err != nil {
 		c.logger.Error().Err(err).Msg("Beacon API never became ready")
+		ctx.ThrowIrrecoverable(fmt.Errorf("beacon API readiness check failed: %w", err))
 		return
 	}
 
-	// Signal ready
-	c.mu.Lock()
-	c.isReady = true
-	close(c.readyCh)
-	c.mu.Unlock()
-
 	c.logger.Info().Msg("Prysm client ready")
-
-	// Wait for shutdown signal
-	<-ctx.Done()
-
-	// Shutdown beacon node and validator
-	c.shutdown()
 }
 
 // initBeaconNode initializes the Prysm beacon node with genesis configuration.
-func (c *Client) initBeaconNode(ctx context.Context) error {
+func (c *Client) initBeaconNode(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("Initializing Prysm beacon node")
 
 	// TODO: Implement beacon node initialization using Prysm v5 API
@@ -243,7 +192,7 @@ func (c *Client) initBeaconNode(ctx context.Context) error {
 }
 
 // startBeaconNode starts the Prysm beacon node.
-func (c *Client) startBeaconNode(ctx context.Context) error {
+func (c *Client) startBeaconNode(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("Starting Prysm beacon node")
 
 	// TODO: Implement beacon node startup using Prysm v5 API
@@ -253,7 +202,7 @@ func (c *Client) startBeaconNode(ctx context.Context) error {
 }
 
 // initValidator initializes the Prysm validator client with configured keys.
-func (c *Client) initValidator(ctx context.Context) error {
+func (c *Client) initValidator(ctx modules.ThrowableContext) error {
 	c.logger.Info().Int("key_count", len(c.config.ValidatorKeys)).Msg("Initializing Prysm validator")
 
 	// TODO: Implement validator initialization using Prysm v5 API
@@ -267,7 +216,7 @@ func (c *Client) initValidator(ctx context.Context) error {
 }
 
 // waitForBeaconAPI waits for the beacon API to become responsive.
-func (c *Client) waitForBeaconAPI(ctx context.Context) error {
+func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("Waiting for beacon API to be ready")
 
 	deadline := time.Now().Add(ReadyTimeout)
@@ -280,7 +229,7 @@ func (c *Client) waitForBeaconAPI(ctx context.Context) error {
 		// For now, just simulate readiness
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		case <-time.After(100 * time.Millisecond):
 			// Check health endpoint
 			continue

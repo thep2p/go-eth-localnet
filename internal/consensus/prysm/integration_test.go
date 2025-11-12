@@ -12,6 +12,8 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
+	"github.com/thep2p/skipgraph-go/modules/throwable"
+	skipgraphtest "github.com/thep2p/skipgraph-go/unittest"
 )
 
 // TestPrysmGethIntegration verifies Prysm can connect to Geth via Engine API.
@@ -58,16 +60,14 @@ func TestPrysmGethIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prysmClient)
 
-	// Start Prysm
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Start Prysm with throwable context
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
-	err = prysmClient.Start(ctx)
-	require.NoError(t, err)
+	prysmClient.Start(ctx)
 
+	// Wait for done on cleanup
 	t.Cleanup(func() {
-		prysmClient.Stop()
-		prysmClient.Wait()
+		<-prysmClient.Done()
 	})
 
 	// Wait for Prysm to be ready
@@ -156,17 +156,18 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 	}
 
 	// Start all Prysm nodes
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
 	for i, client := range prysmClients {
-		err := client.Start(ctx)
-		require.NoError(t, err, "failed to start prysm node %d", i)
+		client.Start(ctx)
+		t.Logf("Started prysm node %d", i)
 
-		t.Cleanup(func() {
-			client.Stop()
-			client.Wait()
-		})
+		// Register cleanup for this specific client
+		func(c *Client) {
+			t.Cleanup(func() {
+				<-c.Done()
+			})
+		}(client)
 	}
 
 	// Wait for all nodes to be ready

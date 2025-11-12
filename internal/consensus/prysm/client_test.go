@@ -1,7 +1,7 @@
 package prysm
 
 import (
-	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
+	"github.com/thep2p/skipgraph-go/modules/throwable"
+	skipgraphtest "github.com/thep2p/skipgraph-go/unittest"
 )
 
 // TestClientLifecycle verifies basic lifecycle management of Prysm client.
@@ -35,31 +37,21 @@ func TestClientLifecycle(t *testing.T) {
 	client := NewClient(logger, cfg)
 	require.NotNil(t, client)
 
-	// Client should not be ready before start
-	assert.False(t, client.IsReady())
-
-	// Start should succeed
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create throwable context for starting the component
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
 	// Note: Start will fail because we haven't implemented the actual Prysm integration yet
-	// This test validates the lifecycle pattern is correct
-	err := client.Start(ctx)
+	// The test should panic with ThrowIrrecoverable, which we'll catch
+	defer func() {
+		if r := recover(); r != nil {
+			t.Logf("Expected panic (implementation incomplete): %v", r)
+		}
+	}()
 
-	// For now, we expect an error since the implementation is not complete
-	// Once implemented, this should be: require.NoError(t, err)
-	if err != nil {
-		t.Logf("Expected error (implementation incomplete): %v", err)
-		return
-	}
+	// Start the client (this will throw an irrecoverable error)
+	client.Start(ctx)
 
-	// Register cleanup
-	t.Cleanup(func() {
-		client.Stop()
-		client.Wait()
-	})
-
-	// Wait for ready (with timeout)
+	// If we get here without panic, wait for ready
 	select {
 	case <-client.Ready():
 		t.Log("Client became ready")
@@ -67,10 +59,13 @@ func TestClientLifecycle(t *testing.T) {
 		t.Log("Client did not become ready (expected until implementation complete)")
 	}
 
-	// Stop should be idempotent
-	client.Stop()
-	client.Stop()
-	client.Wait()
+	// Wait for done
+	select {
+	case <-client.Done():
+		t.Log("Client finished")
+	case <-time.After(5 * time.Second):
+		t.Log("Client did not finish")
+	}
 }
 
 // TestClientValidation verifies configuration validation.
@@ -139,15 +134,24 @@ func TestClientValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewClient(logger, tt.cfg)
-			ctx := context.Background()
-			err := client.Start(ctx)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.wantError)
+			ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
+
+			// Validation errors should be thrown as irrecoverable
+			defer func() {
+				r := recover()
+				require.NotNil(t, r, "Expected panic from ThrowIrrecoverable")
+				errMsg := fmt.Sprintf("%v", r)
+				require.Contains(t, errMsg, tt.wantError, "Error should contain expected message")
+			}()
+
+			client.Start(ctx)
+			t.Fatal("Start should have panicked with validation error")
 		})
 	}
 }
 
-// TestClientMultipleStarts verifies that starting an already-started client fails.
+// TestClientMultipleStarts verifies that starting an already-started client panics.
+// This is enforced by the Component pattern - Start must only be called once.
 func TestClientMultipleStarts(t *testing.T) {
 	t.Parallel()
 
@@ -167,50 +171,18 @@ func TestClientMultipleStarts(t *testing.T) {
 	}
 
 	client := NewClient(logger, cfg)
-	ctx := context.Background()
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
-	// First start (will fail due to incomplete implementation)
-	_ = client.Start(ctx)
+	// First start (will throw due to incomplete implementation)
+	defer func() { _ = recover() }()
+	client.Start(ctx)
 
-	// Second start should always fail
-	err := client.Start(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "already started")
-
-	client.Stop()
-	client.Wait()
-}
-
-// TestClientStopBeforeStart verifies graceful handling of stop before start.
-func TestClientStopBeforeStart(t *testing.T) {
-	t.Parallel()
-
-	logger := unittest.Logger(t)
-	tmp := unittest.NewTempDir(t)
-	t.Cleanup(tmp.Remove)
-
-	cfg := consensus.Config{
-		DataDir:        filepath.Join(tmp.Path(), "prysm"),
-		ChainID:        1337,
-		GenesisTime:    time.Now(),
-		BeaconPort:     unittest.NewPort(t),
-		P2PPort:        unittest.NewPort(t),
-		RPCPort:        unittest.NewPort(t),
-		EngineEndpoint: "http://127.0.0.1:8551",
-		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
-	}
-
-	client := NewClient(logger, cfg)
-
-	// Stop before start should not panic
-	client.Stop()
-	client.Wait()
-
-	// Start after stop should fail
-	ctx := context.Background()
-	err := client.Start(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "already stopped")
+	// Second start should panic
+	defer func() {
+		r := recover()
+		require.NotNil(t, r, "Expected panic on second Start call")
+	}()
+	client.Start(ctx)
 }
 
 // TestClientAPIs verifies API URL generation.
@@ -280,17 +252,15 @@ func TestClientWithValidators(t *testing.T) {
 	client := NewClient(logger, cfg)
 	require.NotNil(t, client)
 
-	ctx := context.Background()
-	err := client.Start(ctx)
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
-	// For now, we expect an error since the implementation is not complete
-	if err != nil {
-		t.Logf("Expected error (implementation incomplete): %v", err)
-		return
-	}
+	// For now, we expect a panic since the implementation is not complete
+	defer func() {
+		r := recover()
+		if r != nil {
+			t.Logf("Expected panic (implementation incomplete): %v", r)
+		}
+	}()
 
-	t.Cleanup(func() {
-		client.Stop()
-		client.Wait()
-	})
+	client.Start(ctx)
 }
