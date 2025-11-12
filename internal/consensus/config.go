@@ -7,16 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// Config holds configuration for a Consensus Layer client.
+// Config holds configuration for the Prysm consensus client.
 //
-// Config defines all parameters needed to launch and run a CL client,
+// Config defines all parameters needed to launch and run Prysm,
 // including network settings, ports, and validator configuration.
 type Config struct {
-	// Client identifies which CL implementation to use (prysm, lighthouse, nimbus, etc.).
-	Client string
-
-	// DataDir is the directory for CL client data.
-	// The client stores beacon chain data, validator keys, and other persistent state here.
+	// DataDir is the directory for Prysm client data.
+	// Prysm stores beacon chain data, validator keys, and other persistent state here.
 	DataDir string
 
 	// Network configuration

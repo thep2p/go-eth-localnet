@@ -1,9 +1,0 @@
-with-expecter: true
-packages:
-  github.com/thep2p/go-eth-localnet/internal/consensus:
-    config:
-      dir: "internal/unittest/mocks"
-      outpkg: mocks
-    interfaces:
-      Client:
-      Launcher:
