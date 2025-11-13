@@ -11,10 +11,6 @@ import (
 )
 
 const (
-	// StartupTimeout is the maximum time to wait for Prysm to start.
-	StartupTimeout = 10 * time.Second
-	// ShutdownTimeout is the maximum time to wait for Prysm to shut down.
-	ShutdownTimeout = 10 * time.Second
 	// ReadyTimeout is the maximum time to wait for Prysm to be ready.
 	ReadyTimeout = 10 * time.Second
 )
