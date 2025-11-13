@@ -14,7 +14,7 @@ import (
 type Config struct {
 	// DataDir is the directory for Prysm client data.
 	// Prysm stores beacon chain data, validator keys, and other persistent state here.
-	DataDir string
+	DataDir string `validate:"required"`
 
 	// Network configuration
 
@@ -30,10 +30,10 @@ type Config struct {
 	// Ports
 
 	// BeaconPort is the port for the Beacon API (typically 4000).
-	BeaconPort int
+	BeaconPort int `validate:"required,gt=0"`
 
 	// P2PPort is the port for P2P networking (typically 9000).
-	P2PPort int
+	P2PPort int `validate:"required,gt=0"`
 
 	// RPCPort is the port for gRPC or other RPC services (client-specific).
 	RPCPort int
@@ -42,11 +42,11 @@ type Config struct {
 
 	// EngineEndpoint is the Engine API endpoint of the paired EL node.
 	// Format: http://host:port
-	EngineEndpoint string
+	EngineEndpoint string `validate:"required"`
 
 	// JWTSecret is the JWT secret for Engine API authentication.
 	// Must match the secret used by the paired EL node.
-	JWTSecret []byte
+	JWTSecret []byte `validate:"required,min=1"`
 
 	// P2P configuration
 

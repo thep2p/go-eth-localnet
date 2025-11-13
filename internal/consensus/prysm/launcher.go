@@ -67,7 +67,11 @@ func (l *Launcher) Launch(cfg consensus.Config) (*Client, error) {
 		Int("validator_count", len(cfg.ValidatorKeys)).
 		Msg("Creating Prysm client")
 
-	return NewClient(l.logger, cfg), nil
+	client, err := NewClient(l.logger, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 // LaunchOption is a functional option for customizing Prysm client configuration.

@@ -1,7 +1,6 @@
 package prysm
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -34,7 +33,8 @@ func TestClientLifecycle(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client := NewClient(logger, cfg)
+	client, err := NewClient(logger, cfg)
+	require.NoError(t, err)
 	require.NotNil(t, client)
 
 	// Create throwable context for starting the component
@@ -87,7 +87,7 @@ func TestClientValidation(t *testing.T) {
 				EngineEndpoint: "http://127.0.0.1:8551",
 				JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 			},
-			wantError: "data directory",
+			wantError: "DataDir",
 		},
 		{
 			name: "missing beacon port",
@@ -97,7 +97,7 @@ func TestClientValidation(t *testing.T) {
 				EngineEndpoint: "http://127.0.0.1:8551",
 				JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 			},
-			wantError: "beacon port",
+			wantError: "BeaconPort",
 		},
 		{
 			name: "missing p2p port",
@@ -107,7 +107,7 @@ func TestClientValidation(t *testing.T) {
 				EngineEndpoint: "http://127.0.0.1:8551",
 				JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 			},
-			wantError: "p2p port",
+			wantError: "P2PPort",
 		},
 		{
 			name: "missing engine endpoint",
@@ -117,7 +117,7 @@ func TestClientValidation(t *testing.T) {
 				P2PPort:    9000,
 				JWTSecret:  []byte("test-jwt-secret-32-bytes-long!!"),
 			},
-			wantError: "engine endpoint",
+			wantError: "EngineEndpoint",
 		},
 		{
 			name: "missing jwt secret",
@@ -127,25 +127,16 @@ func TestClientValidation(t *testing.T) {
 				P2PPort:        9000,
 				EngineEndpoint: "http://127.0.0.1:8551",
 			},
-			wantError: "jwt secret",
+			wantError: "JWTSecret",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient(logger, tt.cfg)
-			ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
-
-			// Validation errors should be thrown as irrecoverable
-			defer func() {
-				r := recover()
-				require.NotNil(t, r, "Expected panic from ThrowIrrecoverable")
-				errMsg := fmt.Sprintf("%v", r)
-				require.Contains(t, errMsg, tt.wantError, "Error should contain expected message")
-			}()
-
-			client.Start(ctx)
-			t.Fatal("Start should have panicked with validation error")
+			client, err := NewClient(logger, tt.cfg)
+			require.Error(t, err, "Expected validation error from NewClient")
+			require.Nil(t, client, "Client should be nil when validation fails")
+			require.Contains(t, err.Error(), tt.wantError, "Error should contain expected message")
 		})
 	}
 }
@@ -170,7 +161,8 @@ func TestClientMultipleStarts(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client := NewClient(logger, cfg)
+	client, err := NewClient(logger, cfg)
+	require.NoError(t, err)
 	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
 	// First start (will throw due to incomplete implementation)
@@ -207,7 +199,8 @@ func TestClientAPIs(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client := NewClient(logger, cfg)
+	client, err := NewClient(logger, cfg)
+	require.NoError(t, err)
 
 	// Verify API URLs are correctly formatted
 	expectedBeaconAPI := "http://127.0.0.1:" + string(rune(beaconPort))
@@ -249,7 +242,8 @@ func TestClientWithValidators(t *testing.T) {
 		FeeRecipient:   common.HexToAddress("0x1234567890123456789012345678901234567890"),
 	}
 
-	client := NewClient(logger, cfg)
+	client, err := NewClient(logger, cfg)
+	require.NoError(t, err)
 	require.NotNil(t, client)
 
 	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
