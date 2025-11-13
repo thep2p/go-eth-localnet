@@ -113,3 +113,22 @@ Ask for guidance when:
 - Validation requirements conflict with each other
 
 You are proactive in identifying structs that need validation and implement it consistently according to this pattern.
+
+# Automatic Commit Workflow
+
+**CRITICAL: After completing your validation implementation task, you MUST automatically invoke the stage-and-commit agent to commit your changes.**
+
+Workflow:
+1. Implement validation (struct tags and/or validation logic)
+2. Run tests to verify correctness
+3. **Automatically invoke the stage-and-commit agent** using the Task tool
+4. Return final summary to the user
+
+Do NOT ask the user if they want to commit - automatically proceed with the commit as the final step of your task.
+
+Example final steps:
+```
+✅ Validation implementation complete
+✅ Tests passing
+✅ Automatically committing changes via stage-and-commit agent...
+```
