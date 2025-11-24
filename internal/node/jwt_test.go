@@ -1,4 +1,4 @@
-package node
+package node_test
 
 import (
 	"encoding/hex"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
 )
 
@@ -17,7 +18,7 @@ func TestGenerateJWTSecret_Success(t *testing.T) {
 	tempDir := unittest.NewTempDir(t)
 	defer tempDir.Remove()
 
-	jwtPath, err := GenerateJWTSecret(tempDir.Path())
+	jwtPath, err := node.GenerateJWTSecret(tempDir.Path())
 	require.NoError(t, err, "GenerateJWTSecret should succeed")
 	require.NotEmpty(t, jwtPath, "JWT path should not be empty")
 
@@ -39,7 +40,7 @@ func TestGenerateJWTSecret_Success(t *testing.T) {
 	require.NoError(t, err, "JWT content should be valid hex")
 
 	// Verify the path points to jwt.hex
-	require.Equal(t, JWTFileName, filepath.Base(jwtPath), "JWT file should be named jwt.hex")
+	require.Equal(t, node.JWTFileName, filepath.Base(jwtPath), "JWT file should be named jwt.hex")
 }
 
 // TestGenerateJWTSecret_CreatesDirectory validates that GenerateJWTSecret
@@ -54,7 +55,7 @@ func TestGenerateJWTSecret_CreatesDirectory(t *testing.T) {
 	_, err := os.Stat(dataDir)
 	require.True(t, os.IsNotExist(err), "Directory should not exist initially")
 
-	jwtPath, err := GenerateJWTSecret(dataDir)
+	jwtPath, err := node.GenerateJWTSecret(dataDir)
 	require.NoError(t, err, "GenerateJWTSecret should create parent directory")
 
 	// Verify the directory was created
@@ -75,10 +76,10 @@ func TestGenerateJWTSecret_UniqueSecrets(t *testing.T) {
 	tempDir2 := unittest.NewTempDir(t)
 	defer tempDir2.Remove()
 
-	jwtPath1, err := GenerateJWTSecret(tempDir1.Path())
+	jwtPath1, err := node.GenerateJWTSecret(tempDir1.Path())
 	require.NoError(t, err, "First GenerateJWTSecret should succeed")
 
-	jwtPath2, err := GenerateJWTSecret(tempDir2.Path())
+	jwtPath2, err := node.GenerateJWTSecret(tempDir2.Path())
 	require.NoError(t, err, "Second GenerateJWTSecret should succeed")
 
 	content1, err := os.ReadFile(jwtPath1)
@@ -98,13 +99,13 @@ func TestGenerateJWTSecret_Idempotency(t *testing.T) {
 	defer tempDir.Remove()
 
 	// Generate first JWT
-	jwtPath1, err := GenerateJWTSecret(tempDir.Path())
+	jwtPath1, err := node.GenerateJWTSecret(tempDir.Path())
 	require.NoError(t, err, "First GenerateJWTSecret should succeed")
 	content1, err := os.ReadFile(jwtPath1)
 	require.NoError(t, err, "Should read first JWT file")
 
 	// Generate second JWT in same directory
-	jwtPath2, err := GenerateJWTSecret(tempDir.Path())
+	jwtPath2, err := node.GenerateJWTSecret(tempDir.Path())
 	require.NoError(t, err, "Second GenerateJWTSecret should succeed")
 	content2, err := os.ReadFile(jwtPath2)
 	require.NoError(t, err, "Should read second JWT file")

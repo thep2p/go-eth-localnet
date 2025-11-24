@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// ReadyTimeout is the maximum time to wait for Prysm to be ready.
-	ReadyTimeout = 10 * time.Second
+	// ReadyDoneTimeout is the maximum time to wait for Prysm to be ready.
+	ReadyDoneTimeout = 10 * time.Second
 )
 
 // Client manages a Prysm beacon node and validator client in-process.
@@ -148,10 +148,10 @@ func (c *Client) initValidator(ctx modules.ThrowableContext) error {
 func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("waiting for beacon api to be ready")
 
-	deadline := time.Now().Add(ReadyTimeout)
+	deadline := time.Now().Add(ReadyDoneTimeout)
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("beacon api did not become ready within %v", ReadyTimeout)
+			return fmt.Errorf("beacon api did not become ready within %v", ReadyDoneTimeout)
 		}
 
 		// TODO: Implement actual health check against beacon API

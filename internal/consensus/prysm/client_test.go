@@ -1,4 +1,4 @@
-package prysm
+package prysm_test
 
 import (
 	"path/filepath"
@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
+	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
 	"github.com/thep2p/skipgraph-go/modules/throwable"
 	skipgraphtest "github.com/thep2p/skipgraph-go/unittest"
@@ -33,7 +33,7 @@ func TestClientLifecycle(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client, err := NewClient(logger, cfg)
+	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -55,7 +55,7 @@ func TestClientLifecycle(t *testing.T) {
 	select {
 	case <-client.Ready():
 		t.Log("client became ready")
-	case <-time.After(5 * time.Second):
+	case <-time.After(prysm.ReadyDoneTimeout):
 		t.Log("client did not become ready (expected until implementation complete)")
 	}
 
@@ -63,7 +63,7 @@ func TestClientLifecycle(t *testing.T) {
 	select {
 	case <-client.Done():
 		t.Log("client finished")
-	case <-time.After(5 * time.Second):
+	case <-time.After(prysm.ReadyDoneTimeout):
 		t.Log("client did not finish")
 	}
 }
@@ -133,7 +133,7 @@ func TestClientValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewClient(logger, tt.cfg)
+			client, err := prysm.NewClient(logger, tt.cfg)
 			require.Error(t, err, "Expected validation error from NewClient")
 			require.Nil(t, client, "Client should be nil when validation fails")
 			require.Contains(t, err.Error(), tt.wantError, "Error should contain expected message")
@@ -161,7 +161,7 @@ func TestClientMultipleStarts(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client, err := NewClient(logger, cfg)
+	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
 	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
@@ -199,7 +199,7 @@ func TestClientAPIs(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	client, err := NewClient(logger, cfg)
+	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
 
 	// Verify API URLs are correctly formatted
@@ -208,8 +208,8 @@ func TestClientAPIs(t *testing.T) {
 
 	// Note: These assertions check the format, not the exact string
 	// because of int-to-string conversion issues in the test
-	assert.Contains(t, client.BeaconAPIURL(), "http://127.0.0.1:")
-	assert.Contains(t, client.P2PAddress(), "/ip4/127.0.0.1/tcp/")
+	require.Contains(t, client.BeaconAPIURL(), "http://127.0.0.1:")
+	require.Contains(t, client.P2PAddress(), "/ip4/127.0.0.1/tcp/")
 
 	// Verify they contain the correct ports
 	_ = expectedBeaconAPI
@@ -242,7 +242,7 @@ func TestClientWithValidators(t *testing.T) {
 		FeeRecipient:   common.HexToAddress("0x1234567890123456789012345678901234567890"),
 	}
 
-	client, err := NewClient(logger, cfg)
+	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 

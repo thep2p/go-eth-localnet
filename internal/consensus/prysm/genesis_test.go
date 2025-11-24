@@ -1,4 +1,4 @@
-package prysm
+package prysm_test
 
 import (
 	"testing"
@@ -7,13 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 )
 
 // TestDefaultGenesisTime verifies default genesis time generation.
 func TestDefaultGenesisTime(t *testing.T) {
 	t.Parallel()
 
-	genesisTime := DefaultGenesisTime()
+	genesisTime := prysm.DefaultGenesisTime()
 	now := time.Now()
 
 	// Genesis time should be in the past (within last minute)
@@ -25,7 +26,7 @@ func TestDefaultGenesisTime(t *testing.T) {
 func TestMinGenesisActiveValidatorCount(t *testing.T) {
 	t.Parallel()
 
-	minCount := MinGenesisActiveValidatorCount()
+	minCount := prysm.MinGenesisActiveValidatorCount()
 	assert.Equal(t, 1, minCount, "Local development should require only 1 validator")
 }
 
@@ -33,7 +34,7 @@ func TestMinGenesisActiveValidatorCount(t *testing.T) {
 func TestGenesisDelay(t *testing.T) {
 	t.Parallel()
 
-	delay := GenesisDelay()
+	delay := prysm.GenesisDelay()
 	assert.Equal(t, time.Duration(0), delay, "Local development should have no delay")
 }
 
@@ -75,7 +76,7 @@ func TestGenerateTestValidators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validators, err := GenerateTestValidators(tt.count, withdrawalAddr)
+			validators, err := prysm.GenerateTestValidators(tt.count, withdrawalAddr)
 
 			if tt.wantError != "" {
 				require.Error(t, err)
@@ -105,17 +106,17 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := GenerateTestValidators(1, withdrawalAddr)
+	validators, err := prysm.GenerateTestValidators(1, withdrawalAddr)
 	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
-		cfg       GenesisConfig
+		cfg       prysm.GenesisConfig
 		wantError string
 	}{
 		{
 			name: "missing chain id",
-			cfg: GenesisConfig{
+			cfg: prysm.GenesisConfig{
 				GenesisTime:       time.Now(),
 				GenesisValidators: validators,
 			},
@@ -123,7 +124,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 		},
 		{
 			name: "missing genesis time",
-			cfg: GenesisConfig{
+			cfg: prysm.GenesisConfig{
 				ChainID:           1337,
 				GenesisValidators: validators,
 			},
@@ -131,7 +132,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 		},
 		{
 			name: "missing validators",
-			cfg: GenesisConfig{
+			cfg: prysm.GenesisConfig{
 				ChainID:     1337,
 				GenesisTime: time.Now(),
 			},
@@ -141,7 +142,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state, err := GenerateGenesisState(tt.cfg)
+			state, err := prysm.GenerateGenesisState(tt.cfg)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantError)
 			require.Nil(t, state)
@@ -155,21 +156,21 @@ func TestGenerateGenesisState(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := GenerateTestValidators(4, withdrawalAddr)
+	validators, err := prysm.GenerateTestValidators(4, withdrawalAddr)
 	require.NoError(t, err)
 
-	cfg := GenesisConfig{
+	cfg := prysm.GenesisConfig{
 		ChainID:           1337,
 		GenesisTime:       time.Now(),
 		GenesisValidators: validators,
-		ExecutionPayloadHeader: ExecutionHeader{
+		ExecutionPayloadHeader: prysm.ExecutionHeader{
 			BlockHash:   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 			BlockNumber: 0,
 			Timestamp:   uint64(time.Now().Unix()),
 		},
 	}
 
-	state, err := GenerateGenesisState(cfg)
+	state, err := prysm.GenerateGenesisState(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotEmpty(t, state)
@@ -179,12 +180,12 @@ func TestGenerateGenesisState(t *testing.T) {
 func TestDeriveGenesisRootValidation(t *testing.T) {
 	t.Parallel()
 
-	root, err := DeriveGenesisRoot(nil)
+	root, err := prysm.DeriveGenesisRoot(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
 	require.Equal(t, [32]byte{}, root)
 
-	root, err = DeriveGenesisRoot([]byte{})
+	root, err = prysm.DeriveGenesisRoot([]byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
 	require.Equal(t, [32]byte{}, root)
@@ -198,7 +199,7 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	// Create a dummy genesis state for testing
 	genesisState := []byte("test-genesis-state")
 
-	root, err := DeriveGenesisRoot(genesisState)
+	root, err := prysm.DeriveGenesisRoot(genesisState)
 	require.NoError(t, err)
 	require.NotEqual(t, [32]byte{}, root)
 }
@@ -210,7 +211,7 @@ func TestValidatorConfig(t *testing.T) {
 	privateKey := "0x1234567890abcdef"
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 
-	validator := ValidatorConfig{
+	validator := prysm.ValidatorConfig{
 		PrivateKey:            privateKey,
 		WithdrawalCredentials: withdrawalAddr,
 	}
@@ -227,7 +228,7 @@ func TestExecutionHeader(t *testing.T) {
 	blockNumber := uint64(123)
 	timestamp := uint64(time.Now().Unix())
 
-	header := ExecutionHeader{
+	header := prysm.ExecutionHeader{
 		BlockHash:   blockHash,
 		BlockNumber: blockNumber,
 		Timestamp:   timestamp,
@@ -243,18 +244,18 @@ func TestGenesisConfig(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := GenerateTestValidators(2, withdrawalAddr)
+	validators, err := prysm.GenerateTestValidators(2, withdrawalAddr)
 	require.NoError(t, err)
 
 	chainID := uint64(1337)
 	genesisTime := time.Now()
 	blockHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
-	cfg := GenesisConfig{
+	cfg := prysm.GenesisConfig{
 		ChainID:           chainID,
 		GenesisTime:       genesisTime,
 		GenesisValidators: validators,
-		ExecutionPayloadHeader: ExecutionHeader{
+		ExecutionPayloadHeader: prysm.ExecutionHeader{
 			BlockHash:   blockHash,
 			BlockNumber: 0,
 			Timestamp:   uint64(genesisTime.Unix()),
