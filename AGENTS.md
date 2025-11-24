@@ -10,6 +10,22 @@
 
 ### Testing Best Practices
 
+**Test Package Naming:**
+- **CRITICAL: All test files (ending in `_test.go`) MUST use `_test` package suffix**
+- Test files should use black-box testing by importing the package under test
+- Example: tests for `package prysm` should use `package prysm_test`
+- Example: tests for `package node` should use `package node_test`
+- This enforces testing the public API and prevents tight coupling to internals
+- Only exception: when testing unexported functions, use the same package name
+
+**Test Timeouts:**
+- **CRITICAL: Use defined timeout constants instead of hardcoded values**
+- For component lifecycle (Ready/Done): use `ReadyDoneTimeout` (10 seconds)
+- For node startup: use `node.StartupTimeout` (5 seconds)
+- For RPC operations: use `node.OperationTimeout` (5 seconds)
+- Example: Use `time.After(prysm.ReadyDoneTimeout)` not `time.After(30 * time.Second)`
+- This ensures consistent timeout behavior across all tests
+
 **Test Organization Convention:**
 ```
 internal/unittest/          # All test utilities and mocks
