@@ -40,11 +40,11 @@ func TestClientLifecycle(t *testing.T) {
 	// Create throwable context for starting the component
 	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
-	// Note: Start will fail because we haven't implemented the actual Prysm integration yet
+	// Note: Start will fail because we haven't implemented the actual prysm integration yet
 	// The test should panic with ThrowIrrecoverable, which we'll catch
 	defer func() {
 		if r := recover(); r != nil {
-			t.Logf("Expected panic (implementation incomplete): %v", r)
+			t.Logf("expected panic (implementation incomplete): %v", r)
 		}
 	}()
 
@@ -54,17 +54,17 @@ func TestClientLifecycle(t *testing.T) {
 	// If we get here without panic, wait for ready
 	select {
 	case <-client.Ready():
-		t.Log("Client became ready")
+		t.Log("client became ready")
 	case <-time.After(5 * time.Second):
-		t.Log("Client did not become ready (expected until implementation complete)")
+		t.Log("client did not become ready (expected until implementation complete)")
 	}
 
 	// Wait for done
 	select {
 	case <-client.Done():
-		t.Log("Client finished")
+		t.Log("client finished")
 	case <-time.After(5 * time.Second):
-		t.Log("Client did not finish")
+		t.Log("client did not finish")
 	}
 }
 

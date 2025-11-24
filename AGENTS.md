@@ -58,6 +58,13 @@ internal/unittest/          # All test utilities and mocks
 - Use comments to explain complex logic or decisions.
 - Use `godoc` comments for public functions, types, and packages.
 - Use `go doc` to check your documentation.
+- **CRITICAL: All log messages and error messages MUST be lowercase only**
+  - No uppercase letters in log messages (`.Msg()`, `.Msgf()`)
+  - No uppercase letters in error messages (`fmt.Errorf()`, `errors.New()`)
+  - Applies to all logger calls (`logger.Info()`, `logger.Error()`, `logger.Warn()`, etc.)
+  - Applies to all test logging (`t.Log()`, `t.Fatal()`, `t.Error()`, etc.)
+  - Example: Use `logger.Info().Msg("node started")` not `logger.Info().Msg("Node started")`
+  - Example: Use `fmt.Errorf("failed to start node: %w", err)` not `fmt.Errorf("Failed to start node: %w", err)`
 - Title format for commit messages: `Short description (50 characters or less)`.
 - Use the imperative mood in commit messages (e.g., "Fix bug" instead of "Fixed bug").
 - Title format for pull requests: `Short description (50 characters or less)`.

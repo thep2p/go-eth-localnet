@@ -99,7 +99,7 @@ func (c *Client) startup(ctx modules.ThrowableContext) {
 
 	// Wait for beacon API to be ready
 	if err := c.waitForBeaconAPI(ctx); err != nil {
-		ctx.ThrowIrrecoverable(fmt.Errorf("beacon API readiness check failed: %w", err))
+		ctx.ThrowIrrecoverable(fmt.Errorf("beacon api readiness check failed: %w", err))
 		return
 	}
 
@@ -108,7 +108,7 @@ func (c *Client) startup(ctx modules.ThrowableContext) {
 
 // initBeaconNode initializes the Prysm beacon node with genesis configuration.
 func (c *Client) initBeaconNode(ctx modules.ThrowableContext) error {
-	c.logger.Info().Msg("initializing Prysm beacon node")
+	c.logger.Info().Msg("initializing prysm beacon node")
 
 	// TODO: Implement beacon node initialization using Prysm v5 API
 	// This will involve:
@@ -122,7 +122,7 @@ func (c *Client) initBeaconNode(ctx modules.ThrowableContext) error {
 
 // startBeaconNode starts the Prysm beacon node.
 func (c *Client) startBeaconNode(ctx modules.ThrowableContext) error {
-	c.logger.Info().Msg("starting Prysm beacon node")
+	c.logger.Info().Msg("starting prysm beacon node")
 
 	// TODO: Implement beacon node startup using Prysm v5 API
 	// This will call the beacon node's Start method
@@ -132,7 +132,7 @@ func (c *Client) startBeaconNode(ctx modules.ThrowableContext) error {
 
 // initValidator initializes the Prysm validator client with configured keys.
 func (c *Client) initValidator(ctx modules.ThrowableContext) error {
-	c.logger.Info().Int("key_count", len(c.config.ValidatorKeys)).Msg("Initializing Prysm validator")
+	c.logger.Info().Int("key_count", len(c.config.ValidatorKeys)).Msg("initializing prysm validator")
 
 	// TODO: Implement validator initialization using Prysm v5 API
 	// This will involve:
@@ -146,12 +146,12 @@ func (c *Client) initValidator(ctx modules.ThrowableContext) error {
 
 // waitForBeaconAPI waits for the beacon API to become responsive.
 func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
-	c.logger.Info().Msg("waiting for beacon API to be ready")
+	c.logger.Info().Msg("waiting for beacon api to be ready")
 
 	deadline := time.Now().Add(ReadyTimeout)
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("beacon API did not become ready within %v", ReadyTimeout)
+			return fmt.Errorf("beacon api did not become ready within %v", ReadyTimeout)
 		}
 
 		// TODO: Implement actual health check against beacon API
@@ -168,7 +168,7 @@ func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
 
 // shutdown performs graceful shutdown of beacon node and validator.
 func (c *Client) shutdown() {
-	c.logger.Info().Msg("shutting down Prysm components")
+	c.logger.Info().Msg("shutting down prysm components")
 
 	// TODO: Implement graceful shutdown
 	// This will:

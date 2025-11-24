@@ -38,6 +38,15 @@ The codebase follows a single-node development mode architecture with these key 
 
 ### Important Implementation Details
 
+**Logging and Error Messages:**
+- **CRITICAL: All log messages and error messages MUST be lowercase only**
+- No uppercase letters are allowed in log messages (`.Msg()`, `.Msgf()`)
+- No uppercase letters are allowed in error messages (`fmt.Errorf()`, `errors.New()`)
+- This applies to all logger calls (`logger.Info()`, `logger.Error()`, `logger.Warn()`, etc.)
+- This applies to all test logging (`t.Log()`, `t.Fatal()`, `t.Error()`, etc.)
+- Example: Use `logger.Info().Msg("node started")` not `logger.Info().Msg("Node started")`
+- Example: Use `fmt.Errorf("failed to start node: %w", err)` not `fmt.Errorf("Failed to start node: %w", err)`
+
 **Port Management Pattern:**
 - Test utilities allocate unique ports using `testutils.NewPort()` to prevent conflicts
 - Port allocation uses TCP listeners to find available ports

@@ -65,7 +65,7 @@ func (l *Launcher) Launch(cfg consensus.Config) (*Client, error) {
 		Int("p2p_port", cfg.P2PPort).
 		Str("engine_endpoint", cfg.EngineEndpoint).
 		Int("validator_count", len(cfg.ValidatorKeys)).
-		Msg("Creating Prysm client")
+		Msg("creating prysm client")
 
 	client, err := NewClient(l.logger, cfg)
 	if err != nil {

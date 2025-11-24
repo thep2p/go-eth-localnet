@@ -73,7 +73,7 @@ type ExecutionHeader struct {
 // Returns an error if the configuration is invalid or genesis creation fails.
 func GenerateGenesisState(cfg GenesisConfig) ([]byte, error) {
 	if cfg.ChainID == 0 {
-		return nil, fmt.Errorf("chain ID is required")
+		return nil, fmt.Errorf("chain id is required")
 	}
 	if cfg.GenesisTime.IsZero() {
 		return nil, fmt.Errorf("genesis time is required")

@@ -41,7 +41,7 @@ func TestSingleNodeLaunch(t *testing.T) {
 				if err != nil {
 					logger.Fatal().Err(err).Msg("failed to close node")
 				}
-				logger.Info().Msg("Node closed successfully")
+				logger.Info().Msg("node closed successfully")
 				tmp.Remove()
 			}, node.ShutdownTimeout, "failed to shutdown on time",
 		)

@@ -73,9 +73,9 @@ func TestPrysmGethIntegration(t *testing.T) {
 	// Wait for Prysm to be ready
 	select {
 	case <-prysmClient.Ready():
-		t.Log("Prysm client ready")
+		t.Log("prysm client ready")
 	case <-time.After(30 * time.Second):
-		t.Fatal("Prysm client did not become ready")
+		t.Fatal("prysm client did not become ready")
 	}
 
 	// Verify Beacon API is accessible
@@ -95,7 +95,7 @@ func TestPrysmGethIntegration(t *testing.T) {
 	// 3. Verify Engine API payloads are being sent to Geth
 	time.Sleep(10 * time.Second)
 
-	t.Log("Integration test passed (basic lifecycle)")
+	t.Log("integration test passed (basic lifecycle)")
 }
 
 // TestPrysmMultiNodeConsensus verifies multiple Prysm nodes can form consensus.
@@ -160,7 +160,7 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 
 	for i, client := range prysmClients {
 		client.Start(ctx)
-		t.Logf("Started prysm node %d", i)
+		t.Logf("started prysm node %d", i)
 
 		// Register cleanup for this specific client
 		func(c *Client) {
@@ -174,9 +174,9 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 	for i, client := range prysmClients {
 		select {
 		case <-client.Ready():
-			t.Logf("Prysm node %d ready", i)
+			t.Logf("prysm node %d ready", i)
 		case <-time.After(30 * time.Second):
-			t.Fatalf("Prysm node %d did not become ready", i)
+			t.Fatalf("prysm node %d did not become ready", i)
 		}
 	}
 
@@ -187,7 +187,7 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 	// 3. Verify they continue to track the same chain
 	time.Sleep(30 * time.Second)
 
-	t.Log("Multi-node consensus test passed (basic lifecycle)")
+	t.Log("multi-node consensus test passed (basic lifecycle)")
 }
 
 // startGethWithEngineAPI starts a single Geth node with Engine API enabled.

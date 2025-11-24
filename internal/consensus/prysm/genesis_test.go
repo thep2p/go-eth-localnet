@@ -119,7 +119,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 				GenesisTime:       time.Now(),
 				GenesisValidators: validators,
 			},
-			wantError: "chain ID",
+			wantError: "chain id",
 		},
 		{
 			name: "missing genesis time",
