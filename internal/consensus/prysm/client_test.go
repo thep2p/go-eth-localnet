@@ -1,6 +1,7 @@
 package prysm_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -203,18 +204,12 @@ func TestClientAPIs(t *testing.T) {
 	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
 
-	// Verify API URLs are correctly formatted
-	expectedBeaconAPI := "http://127.0.0.1:" + string(rune(beaconPort))
-	expectedP2P := "/ip4/127.0.0.1/tcp/" + string(rune(p2pPort))
+	// Verify API URLs are correctly formatted with the configured ports
+	expectedBeaconAPI := fmt.Sprintf("http://127.0.0.1:%d", beaconPort)
+	expectedP2P := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", p2pPort)
 
-	// Note: These assertions check the format, not the exact string
-	// because of int-to-string conversion issues in the test
-	require.Contains(t, client.BeaconAPIURL(), "http://127.0.0.1:")
-	require.Contains(t, client.P2PAddress(), "/ip4/127.0.0.1/tcp/")
-
-	// Verify they contain the correct ports
-	_ = expectedBeaconAPI
-	_ = expectedP2P
+	require.Equal(t, expectedBeaconAPI, client.BeaconAPIURL(), "beacon api url should match expected format")
+	require.Equal(t, expectedP2P, client.P2PAddress(), "p2p address should match expected format")
 }
 
 // TestClientWithValidators verifies validator initialization.
