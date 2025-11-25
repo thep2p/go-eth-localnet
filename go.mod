@@ -9,7 +9,7 @@ require (
 	github.com/go-playground/validator/v10 v10.25.0
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
-	github.com/thep2p/skipgraph-go v0.0.0-20251104194109-686a62a95a15
+	github.com/thep2p/skipgraph-go v0.0.0-20251125015026-6ab26ee829f3
 )
 
 require (
