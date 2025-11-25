@@ -56,12 +56,37 @@ internal/unittest/          # All test utilities and mocks
 
 **Component Lifecycle Testing:**
 - Test components implement the `modules.Component` lifecycle pattern
-- Verify `Start()`, `Ready()`, and `Done()` channels in tests
+- **CRITICAL: Use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone` instead of ad-hoc select statements**
+- NEVER write manual select statements to check `Ready()` or `Done()` channels
+- These helpers provide better error messages and consistent timeout handling
+- The helpers use a default timeout internally, so no timeout parameter is needed
 - Use `context.WithCancel()` for graceful shutdown testing
 - Test context cancellation triggers proper component cleanup
+- Example of CORRECT pattern:
+  ```go
+  client.Start(ctx)
+  skipgraphtest.RequireAllReady(t, client)
+
+  mockCtx.Cancel()
+  skipgraphtest.RequireAllDone(t, client)
+  ```
+- Example of INCORRECT pattern (DO NOT USE):
+  ```go
+  select {
+  case <-client.Ready():
+      t.Log("ready")
+  case <-time.After(timeout):
+      t.Fatal("not ready")
+  }
+  ```
+- For multiple components, pass them all to the helper:
+  ```go
+  skipgraphtest.RequireAllReady(t, client1, client2, client3)
+  ```
 
 **Avoiding Common Pitfalls:**
 - NEVER use `select` with `time.After` directly - causes goroutine leaks in loops
+- NEVER write ad-hoc select statements for component Ready/Done - use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone`
 - ALWAYS use test helper functions for timeouts (e.g., waiting on channels with timeout)
 - NEVER skip cleanup in tests - always use `t.Cleanup()` or `defer`
 - ALWAYS test both success and failure paths 

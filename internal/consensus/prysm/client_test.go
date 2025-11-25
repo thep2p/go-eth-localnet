@@ -46,23 +46,13 @@ func TestClientLifecycle(t *testing.T) {
 	client.Start(ctx)
 
 	// Wait for client to become ready
-	select {
-	case <-client.Ready():
-		t.Log("client became ready")
-	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Fatal("client did not become ready within timeout")
-	}
+	skipgraphtest.RequireAllReady(t, client)
 
 	// Cancel context to trigger graceful shutdown
 	mockCtx.Cancel()
 
 	// Wait for client to finish shutdown
-	select {
-	case <-client.Done():
-		t.Log("client finished gracefully")
-	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Fatal("client did not finish within timeout")
-	}
+	skipgraphtest.RequireAllDone(t, client)
 }
 
 // TestClientValidation verifies configuration validation.
@@ -250,21 +240,11 @@ func TestClientWithValidators(t *testing.T) {
 	client.Start(ctx)
 
 	// Wait for client to become ready
-	select {
-	case <-client.Ready():
-		t.Log("client with validators became ready")
-	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Fatal("client with validators did not become ready within timeout")
-	}
+	skipgraphtest.RequireAllReady(t, client)
 
 	// Cancel context to trigger graceful shutdown
 	mockCtx.Cancel()
 
 	// Wait for client to finish shutdown
-	select {
-	case <-client.Done():
-		t.Log("client with validators finished gracefully")
-	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Fatal("client with validators did not finish within timeout")
-	}
+	skipgraphtest.RequireAllDone(t, client)
 }

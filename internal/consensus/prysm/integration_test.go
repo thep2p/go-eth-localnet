@@ -13,6 +13,7 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
+	"github.com/thep2p/skipgraph-go/modules"
 	"github.com/thep2p/skipgraph-go/modules/throwable"
 	skipgraphtest "github.com/thep2p/skipgraph-go/unittest"
 )
@@ -68,16 +69,11 @@ func TestPrysmGethIntegration(t *testing.T) {
 
 	// Wait for done on cleanup
 	t.Cleanup(func() {
-		<-prysmClient.Done()
+		skipgraphtest.RequireAllDone(t, prysmClient)
 	})
 
 	// Wait for Prysm to be ready
-	select {
-	case <-prysmClient.Ready():
-		t.Log("prysm client ready")
-	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Fatal("prysm client did not become ready")
-	}
+	skipgraphtest.RequireAllReady(t, prysmClient)
 
 	// Verify Beacon API is accessible
 	beaconURL := prysmClient.BeaconAPIURL()
@@ -161,24 +157,23 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 	for i, client := range prysmClients {
 		client.Start(ctx)
 		t.Logf("started prysm node %d", i)
-
-		// Register cleanup for this specific client
-		func(c *prysm.Client) {
-			t.Cleanup(func() {
-				<-c.Done()
-			})
-		}(client)
 	}
+
+	// Register cleanup for all clients
+	t.Cleanup(func() {
+		components := make([]modules.Component, len(prysmClients))
+		for i, client := range prysmClients {
+			components[i] = client
+		}
+		skipgraphtest.RequireAllDone(t, components...)
+	})
 
 	// Wait for all nodes to be ready
+	readyComponents := make([]modules.Component, len(prysmClients))
 	for i, client := range prysmClients {
-		select {
-		case <-client.Ready():
-			t.Logf("prysm node %d ready", i)
-		case <-time.After(prysm.ReadyDoneTimeout):
-			t.Fatalf("prysm node %d did not become ready", i)
-		}
+		readyComponents[i] = client
 	}
+	skipgraphtest.RequireAllReady(t, readyComponents...)
 
 	// Wait for consensus
 	// In a real test, we would:
