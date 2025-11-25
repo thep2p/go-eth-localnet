@@ -159,18 +159,23 @@ func TestClientMultipleStarts(t *testing.T) {
 
 	client, err := prysm.NewClient(logger, cfg)
 	require.NoError(t, err)
-	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
 
-	// First start (will throw due to incomplete implementation)
-	defer func() { _ = recover() }()
+	errThrown := make(chan interface{})
+	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t, skipgraphtest.WithThrowLogic(func(_ error) {
+		close(errThrown)
+	})))
+
 	client.Start(ctx)
+	select {
+	case <-errThrown:
+		t.Fatal("Unexpected error during first start")
+	case <-time.After(100 * time.Millisecond):
+		// No error thrown, proceed
+	}
 
 	// Second start should panic
-	defer func() {
-		r := recover()
-		require.NotNil(t, r, "Expected panic on second Start call")
-	}()
 	client.Start(ctx)
+	unittest.ChannelMustCloseWithinTimeout(t, errThrown, 100*time.Millisecond, "Expected error on second start")
 }
 
 // TestClientAPIs verifies API URL generation.
