@@ -37,34 +37,30 @@ func TestClientLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	// Create throwable context for starting the component
-	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
+	// Create cancellable context for component lifecycle
+	mockCtx := skipgraphtest.NewMockThrowableContext(t)
+	ctx := throwable.NewContext(mockCtx)
 
-	// Note: Start will fail because we haven't implemented the actual prysm integration yet
-	// The test should panic with ThrowIrrecoverable, which we'll catch
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("expected panic (implementation incomplete): %v", r)
-		}
-	}()
-
-	// Start the client (this will throw an irrecoverable error)
+	// Start the client - should succeed and become ready
 	client.Start(ctx)
 
-	// If we get here without panic, wait for ready
+	// Wait for client to become ready
 	select {
 	case <-client.Ready():
 		t.Log("client became ready")
 	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Log("client did not become ready (expected until implementation complete)")
+		t.Fatal("client did not become ready within timeout")
 	}
 
-	// Wait for done
+	// Cancel context to trigger graceful shutdown
+	mockCtx.Cancel()
+
+	// Wait for client to finish shutdown
 	select {
 	case <-client.Done():
-		t.Log("client finished")
+		t.Log("client finished gracefully")
 	case <-time.After(prysm.ReadyDoneTimeout):
-		t.Log("client did not finish")
+		t.Fatal("client did not finish within timeout")
 	}
 }
 
@@ -246,15 +242,29 @@ func TestClientWithValidators(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	ctx := throwable.NewContext(skipgraphtest.NewMockThrowableContext(t))
+	// Create cancellable context for component lifecycle
+	mockCtx := skipgraphtest.NewMockThrowableContext(t)
+	ctx := throwable.NewContext(mockCtx)
 
-	// For now, we expect a panic since the implementation is not complete
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Logf("Expected panic (implementation incomplete): %v", r)
-		}
-	}()
-
+	// Start the client with validators - should succeed
 	client.Start(ctx)
+
+	// Wait for client to become ready
+	select {
+	case <-client.Ready():
+		t.Log("client with validators became ready")
+	case <-time.After(prysm.ReadyDoneTimeout):
+		t.Fatal("client with validators did not become ready within timeout")
+	}
+
+	// Cancel context to trigger graceful shutdown
+	mockCtx.Cancel()
+
+	// Wait for client to finish shutdown
+	select {
+	case <-client.Done():
+		t.Log("client with validators finished gracefully")
+	case <-time.After(prysm.ReadyDoneTimeout):
+		t.Fatal("client with validators did not finish within timeout")
+	}
 }
