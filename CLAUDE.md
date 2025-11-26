@@ -47,6 +47,26 @@ The codebase follows a single-node development mode architecture with these key 
 - Example: Use `logger.Info().Msg("node started")` not `logger.Info().Msg("Node started")`
 - Example: Use `fmt.Errorf("failed to start node: %w", err)` not `fmt.Errorf("Failed to start node: %w", err)`
 
+**Type Design - Avoid Primitive Obsession and Thin Wrappers:**
+- **CRITICAL: Use Ethereum's native types instead of primitives or thin wrappers**
+- NEVER define custom types for concepts already in go-ethereum
+- Use `common.Hash` for 32-byte hashes, NOT `[32]byte`
+- Use `common.Address` for Ethereum addresses, NOT `[20]byte`
+- Use `*big.Int` for balances/amounts, NOT custom wrapper types
+- Use go-ethereum's transaction types directly, NOT custom wrappers
+- Example of CORRECT usage:
+  ```go
+  GenesisRoot common.Hash  // NOT [32]byte
+  FeeRecipient common.Address  // NOT custom type
+  ```
+- Example of INCORRECT usage (DO NOT DO THIS):
+  ```go
+  type Hash [32]byte  // Unnecessary - use common.Hash
+  type ExecutionHeader struct { BlockHash common.Hash }  // Thin wrapper - just use the fields directly
+  ```
+- Only create new types when adding meaningful business logic or domain constraints
+- When in doubt, use the upstream Ethereum types directly
+
 **Port Management Pattern:**
 - Test utilities allocate unique ports using `testutils.NewPort()` to prevent conflicts
 - Port allocation uses TCP listeners to find available ports

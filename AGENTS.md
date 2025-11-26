@@ -89,7 +89,29 @@ internal/unittest/          # All test utilities and mocks
 - NEVER write ad-hoc select statements for component Ready/Done - use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone`
 - ALWAYS use test helper functions for timeouts (e.g., waiting on channels with timeout)
 - NEVER skip cleanup in tests - always use `t.Cleanup()` or `defer`
-- ALWAYS test both success and failure paths 
+- ALWAYS test both success and failure paths
+
+**Type Design - Avoid Primitive Obsession:**
+- **CRITICAL: Use Ethereum's native types instead of primitives or thin wrappers**
+- NEVER define custom types for concepts already in go-ethereum (`common.Hash`, `common.Address`, etc.)
+- Use `common.Hash` for 32-byte hashes, NOT `[32]byte`
+- Use `common.Address` for Ethereum addresses, NOT `[20]byte`
+- Use `*big.Int` for balances/amounts, NOT custom wrapper types
+- NEVER create thin wrapper structs that add no business logic
+- Only create new types when they add meaningful domain constraints or behavior
+- Example of CORRECT usage:
+  ```go
+  GenesisRoot common.Hash        // NOT [32]byte
+  FeeRecipient common.Address    // NOT custom type
+  Amount *big.Int                // NOT uint64 or custom wrapper
+  ```
+- Example of INCORRECT usage (ANTI-PATTERN):
+  ```go
+  type StateRoot [32]byte        // Bad: use common.Hash instead
+  type ValidatorAddress [20]byte // Bad: use common.Address instead
+  type WeiAmount uint64          // Bad: use *big.Int instead
+  ```
+- When integrating with Ethereum libraries, use their types directly
 
 ## Code Style
 - Use `gofmt` to format your code before committing.
