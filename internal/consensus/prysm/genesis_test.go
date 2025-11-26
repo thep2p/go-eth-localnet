@@ -183,12 +183,12 @@ func TestDeriveGenesisRootValidation(t *testing.T) {
 	root, err := prysm.DeriveGenesisRoot(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
-	require.Equal(t, [32]byte{}, root)
+	require.Equal(t, common.Hash{}, root)
 
 	root, err = prysm.DeriveGenesisRoot([]byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
-	require.Equal(t, [32]byte{}, root)
+	require.Equal(t, common.Hash{}, root)
 }
 
 // TestDeriveGenesisRoot verifies genesis root calculation.
@@ -201,5 +201,5 @@ func TestDeriveGenesisRoot(t *testing.T) {
 
 	root, err := prysm.DeriveGenesisRoot(genesisState)
 	require.NoError(t, err)
-	require.NotEqual(t, [32]byte{}, root)
+	require.NotEqual(t, common.Hash{}, root)
 }

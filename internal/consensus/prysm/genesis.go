@@ -52,16 +52,16 @@ func GenerateGenesisState(
 // The genesis root is the hash tree root of the beacon chain genesis state.
 // It's used as a unique identifier for the network and must match between
 // all nodes in the network.
-func DeriveGenesisRoot(genesisState []byte) ([32]byte, error) {
+func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	if len(genesisState) == 0 {
-		return [32]byte{}, fmt.Errorf("genesis state is empty")
+		return common.Hash{}, fmt.Errorf("genesis state is empty")
 	}
 
 	// TODO(#47): Implement genesis root calculation
 	// https://github.com/thep2p/go-eth-localnet/issues/47
 	// This will compute the SSZ hash tree root of the beacon state
 
-	return [32]byte{}, fmt.Errorf("genesis root calculation not yet implemented")
+	return common.Hash{}, fmt.Errorf("genesis root calculation not yet implemented")
 }
 
 // DefaultGenesisTime returns a genesis time suitable for local development.
@@ -82,6 +82,13 @@ func DefaultGenesisTime() time.Time {
 // WARNING: The generated keys are deterministic and MUST NOT be used
 // in production. They are suitable only for local testing.
 func GenerateTestValidators(count int) ([]string, error) {
+	if count <= 0 {
+		return nil, fmt.Errorf("validator count must be positive")
+	}
+	if count > 1000 {
+		return nil, fmt.Errorf("validator count too large: %d (max 1000)", count)
+	}
+
 	keys := make([]string, count)
 	for i := 0; i < count; i++ {
 		// TODO(#47): Implement deterministic BLS12-381 key generation for testing

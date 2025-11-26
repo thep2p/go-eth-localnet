@@ -25,7 +25,7 @@ type Config struct {
 	GenesisTime time.Time
 
 	// GenesisRoot is the hash tree root of the genesis beacon state.
-	GenesisRoot [32]byte
+	GenesisRoot common.Hash
 
 	// Ports
 
