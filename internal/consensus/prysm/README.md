@@ -136,9 +136,11 @@ if err != nil {
 }
 
 // Create consensus config
+// For local development, genesis time should be 30 seconds in the past
+// to ensure the network starts producing blocks immediately.
 cfg := consensus.Config{
     ChainID:       1337,
-    GenesisTime:   prysm.DefaultGenesisTime(),
+    GenesisTime:   time.Now().Add(-30 * time.Second),
     ValidatorKeys: validatorKeys,
     FeeRecipient:  common.HexToAddress("0x1234567890123456789012345678901234567890"),
     // ... other config fields ...

@@ -47,7 +47,7 @@ func TestPrysmGethIntegration(t *testing.T) {
 	prysmCfg := consensus.Config{
 		DataDir:        filepath.Join(tmp.Path(), "prysm"),
 		ChainID:        1337,
-		GenesisTime:    prysm.DefaultGenesisTime(),
+		GenesisTime:    time.Now().Add(-30 * time.Second),
 		BeaconPort:     unittest.NewPort(t),
 		P2PPort:        unittest.NewPort(t),
 		RPCPort:        unittest.NewPort(t),
@@ -127,7 +127,7 @@ func TestPrysmMultiNodeConsensus(t *testing.T) {
 		cfg := consensus.Config{
 			DataDir:        filepath.Join(tmp.Path(), fmt.Sprintf("prysm%d", i)),
 			ChainID:        1337,
-			GenesisTime:    prysm.DefaultGenesisTime(),
+			GenesisTime:    time.Now().Add(-30 * time.Second),
 			BeaconPort:     unittest.NewPort(t),
 			P2PPort:        unittest.NewPort(t),
 			RPCPort:        unittest.NewPort(t),

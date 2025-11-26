@@ -11,18 +11,6 @@ import (
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 )
 
-// TestDefaultGenesisTime verifies default genesis time generation.
-func TestDefaultGenesisTime(t *testing.T) {
-	t.Parallel()
-
-	genesisTime := prysm.DefaultGenesisTime()
-	now := time.Now()
-
-	// Genesis time should be in the past (within last minute)
-	assert.True(t, genesisTime.Before(now))
-	assert.True(t, now.Sub(genesisTime) < time.Minute)
-}
-
 // TestGenerateTestValidators verifies validator generation for testing.
 func TestGenerateTestValidators(t *testing.T) {
 	t.Parallel()

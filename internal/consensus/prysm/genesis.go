@@ -2,7 +2,6 @@ package prysm
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
@@ -62,15 +61,6 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	// This will compute the SSZ hash tree root of the beacon state
 
 	return common.Hash{}, fmt.Errorf("genesis root calculation not yet implemented")
-}
-
-// DefaultGenesisTime returns a genesis time suitable for local development.
-//
-// For local networks, we typically start the beacon chain immediately
-// or with a small delay to allow for setup. This returns a time 30 seconds
-// in the past to ensure the network starts producing blocks immediately.
-func DefaultGenesisTime() time.Time {
-	return time.Now().Add(-30 * time.Second)
 }
 
 // GenerateTestValidators creates validator keys for testing.
