@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 )
 
@@ -42,8 +43,6 @@ func TestGenesisDelay(t *testing.T) {
 func TestGenerateTestValidators(t *testing.T) {
 	t.Parallel()
 
-	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-
 	tests := []struct {
 		name      string
 		count     int
@@ -76,7 +75,7 @@ func TestGenerateTestValidators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validators, err := prysm.GenerateTestValidators(tt.count, withdrawalAddr)
+			keys, err := prysm.GenerateTestValidators(tt.count)
 
 			if tt.wantError != "" {
 				require.Error(t, err)
@@ -85,17 +84,16 @@ func TestGenerateTestValidators(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.Len(t, validators, tt.count)
+			require.Len(t, keys, tt.count)
 
-			// Verify all validators have required fields
-			for i, v := range validators {
-				assert.NotEmpty(t, v.PrivateKey, "validator %d should have private key", i)
-				assert.Equal(t, withdrawalAddr, v.WithdrawalCredentials, "validator %d should have withdrawal address", i)
+			// Verify all keys are non-empty strings
+			for i, key := range keys {
+				assert.NotEmpty(t, key, "validator %d should have private key", i)
 			}
 
-			// Verify validators are unique
+			// Verify keys are unique
 			if tt.count > 1 {
-				assert.NotEqual(t, validators[0].PrivateKey, validators[1].PrivateKey, "validators should have unique keys")
+				assert.NotEqual(t, keys[0], keys[1], "validators should have unique keys")
 			}
 		})
 	}
@@ -106,33 +104,34 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := prysm.GenerateTestValidators(1, withdrawalAddr)
+	validatorKeys, err := prysm.GenerateTestValidators(1)
 	require.NoError(t, err)
+	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
 	tests := []struct {
 		name      string
-		cfg       prysm.GenesisConfig
+		cfg       consensus.Config
 		wantError string
 	}{
 		{
 			name: "missing chain id",
-			cfg: prysm.GenesisConfig{
-				GenesisTime:       time.Now(),
-				GenesisValidators: validators,
+			cfg: consensus.Config{
+				GenesisTime:   time.Now(),
+				ValidatorKeys: validatorKeys,
 			},
 			wantError: "chain id",
 		},
 		{
 			name: "missing genesis time",
-			cfg: prysm.GenesisConfig{
-				ChainID:           1337,
-				GenesisValidators: validators,
+			cfg: consensus.Config{
+				ChainID:       1337,
+				ValidatorKeys: validatorKeys,
 			},
 			wantError: "genesis time",
 		},
 		{
 			name: "missing validators",
-			cfg: prysm.GenesisConfig{
+			cfg: consensus.Config{
 				ChainID:     1337,
 				GenesisTime: time.Now(),
 			},
@@ -142,7 +141,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state, err := prysm.GenerateGenesisState(tt.cfg)
+			state, err := prysm.GenerateGenesisState(tt.cfg, withdrawalAddr, gethGenesisHash, 0, uint64(time.Now().Unix()))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantError)
 			require.Nil(t, state)
@@ -156,21 +155,22 @@ func TestGenerateGenesisState(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := prysm.GenerateTestValidators(4, withdrawalAddr)
+	validatorKeys, err := prysm.GenerateTestValidators(4)
 	require.NoError(t, err)
 
-	cfg := prysm.GenesisConfig{
-		ChainID:           1337,
-		GenesisTime:       time.Now(),
-		GenesisValidators: validators,
-		ExecutionPayloadHeader: prysm.ExecutionHeader{
-			BlockHash:   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-			BlockNumber: 0,
-			Timestamp:   uint64(time.Now().Unix()),
-		},
+	now := time.Now()
+	cfg := consensus.Config{
+		ChainID:       1337,
+		GenesisTime:   now,
+		ValidatorKeys: validatorKeys,
+		FeeRecipient:  withdrawalAddr,
 	}
 
-	state, err := prysm.GenerateGenesisState(cfg)
+	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+	gethGenesisNumber := uint64(0)
+	gethGenesisTimestamp := uint64(now.Unix())
+
+	state, err := prysm.GenerateGenesisState(cfg, withdrawalAddr, gethGenesisHash, gethGenesisNumber, gethGenesisTimestamp)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotEmpty(t, state)
@@ -202,69 +202,4 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	root, err := prysm.DeriveGenesisRoot(genesisState)
 	require.NoError(t, err)
 	require.NotEqual(t, [32]byte{}, root)
-}
-
-// TestValidatorConfig verifies ValidatorConfig structure.
-func TestValidatorConfig(t *testing.T) {
-	t.Parallel()
-
-	privateKey := "0x1234567890abcdef"
-	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-
-	validator := prysm.ValidatorConfig{
-		PrivateKey:            privateKey,
-		WithdrawalCredentials: withdrawalAddr,
-	}
-
-	assert.Equal(t, privateKey, validator.PrivateKey)
-	assert.Equal(t, withdrawalAddr, validator.WithdrawalCredentials)
-}
-
-// TestExecutionHeader verifies ExecutionHeader structure.
-func TestExecutionHeader(t *testing.T) {
-	t.Parallel()
-
-	blockHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
-	blockNumber := uint64(123)
-	timestamp := uint64(time.Now().Unix())
-
-	header := prysm.ExecutionHeader{
-		BlockHash:   blockHash,
-		BlockNumber: blockNumber,
-		Timestamp:   timestamp,
-	}
-
-	assert.Equal(t, blockHash, header.BlockHash)
-	assert.Equal(t, blockNumber, header.BlockNumber)
-	assert.Equal(t, timestamp, header.Timestamp)
-}
-
-// TestGenesisConfig verifies GenesisConfig structure.
-func TestGenesisConfig(t *testing.T) {
-	t.Parallel()
-
-	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validators, err := prysm.GenerateTestValidators(2, withdrawalAddr)
-	require.NoError(t, err)
-
-	chainID := uint64(1337)
-	genesisTime := time.Now()
-	blockHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-
-	cfg := prysm.GenesisConfig{
-		ChainID:           chainID,
-		GenesisTime:       genesisTime,
-		GenesisValidators: validators,
-		ExecutionPayloadHeader: prysm.ExecutionHeader{
-			BlockHash:   blockHash,
-			BlockNumber: 0,
-			Timestamp:   uint64(genesisTime.Unix()),
-		},
-	}
-
-	assert.Equal(t, chainID, cfg.ChainID)
-	assert.Equal(t, genesisTime, cfg.GenesisTime)
-	assert.Len(t, cfg.GenesisValidators, 2)
-	assert.Equal(t, blockHash, cfg.ExecutionPayloadHeader.BlockHash)
-	assert.Equal(t, uint64(0), cfg.ExecutionPayloadHeader.BlockNumber)
 }

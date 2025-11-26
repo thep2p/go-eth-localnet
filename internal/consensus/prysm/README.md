@@ -126,26 +126,33 @@ Available options:
 
 ## Genesis Configuration
 
-For local development, genesis states can be generated programmatically:
+For local development, genesis states can be generated programmatically using consensus.Config:
 
 ```go
-validators, err := prysm.GenerateTestValidators(4, withdrawalAddr)
+// Generate test validator keys
+validatorKeys, err := prysm.GenerateTestValidators(4)
 if err != nil {
     log.Fatal(err)
 }
 
-genesisCfg := prysm.GenesisConfig{
-    ChainID:           1337,
-    GenesisTime:       prysm.DefaultGenesisTime(),
-    GenesisValidators: validators,
-    ExecutionPayloadHeader: prysm.ExecutionHeader{
-        BlockHash:   genesisBlockHash,
-        BlockNumber: 0,
-        Timestamp:   uint64(time.Now().Unix()),
-    },
+// Create consensus config
+cfg := consensus.Config{
+    ChainID:       1337,
+    GenesisTime:   prysm.DefaultGenesisTime(),
+    ValidatorKeys: validatorKeys,
+    FeeRecipient:  common.HexToAddress("0x1234567890123456789012345678901234567890"),
+    // ... other config fields ...
 }
 
-genesisState, err := prysm.GenerateGenesisState(genesisCfg)
+// Generate genesis state from config and Geth genesis block info
+withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+genesisState, err := prysm.GenerateGenesisState(
+    cfg,
+    withdrawalAddr,
+    genesisBlockHash,
+    genesisBlockNumber,
+    genesisBlockTimestamp,
+)
 if err != nil {
     log.Fatal(err)
 }
