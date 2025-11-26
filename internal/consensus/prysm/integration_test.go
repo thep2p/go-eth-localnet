@@ -27,7 +27,7 @@ import (
 // 4. Verify Engine API communication
 // 5. Verify block production
 func TestPrysmGethIntegration(t *testing.T) {
-	t.Skip("Skipping until Prysm implementation is complete")
+	t.Skip("Skipping until #49 is implemented: https://github.com/thep2p/go-eth-localnet/issues/49")
 	t.Parallel()
 
 	logger := unittest.Logger(t)
@@ -79,7 +79,8 @@ func TestPrysmGethIntegration(t *testing.T) {
 	beaconURL := prysmClient.BeaconAPIURL()
 	t.Logf("Beacon API URL: %s", beaconURL)
 
-	// TODO: Add actual beacon API health check once implemented
+	// TODO(#48): Add actual beacon API health check once implemented
+	// https://github.com/thep2p/go-eth-localnet/issues/48
 	// For example:
 	// - GET /eth/v1/node/health
 	// - GET /eth/v1/node/version
@@ -103,7 +104,7 @@ func TestPrysmGethIntegration(t *testing.T) {
 // 3. Configure them to peer with each other
 // 4. Verify they reach consensus on the chain head
 func TestPrysmMultiNodeConsensus(t *testing.T) {
-	t.Skip("Skipping until Prysm implementation is complete")
+	t.Skip("Skipping until #49 is implemented: https://github.com/thep2p/go-eth-localnet/issues/49")
 	t.Parallel()
 
 	nodeCount := 3
@@ -267,7 +268,8 @@ func generateTestValidatorKeys(t *testing.T, count int) []string {
 	keys := make([]string, count)
 	for i := 0; i < count; i++ {
 		// For now, just use placeholder keys
-		// TODO: Generate actual BLS12-381 keys once genesis.go is implemented
+		// TODO(#47): Generate actual BLS12-381 keys once genesis.go is implemented
+		// https://github.com/thep2p/go-eth-localnet/issues/47
 		keys[i] = fmt.Sprintf("test-validator-key-%d", i)
 	}
 	return keys

@@ -190,7 +190,13 @@ Integration tests demonstrate the complete workflow from Geth node startup throu
 
 ## Implementation Status
 
-The package provides a complete API and lifecycle management framework. The actual Prysm v5 integration (beacon node initialization, validator management, and Engine API communication) is marked with TODO comments and returns errors indicating "not yet implemented".
+The package provides a complete API and lifecycle management framework. The actual Prysm v5 integration is planned for implementation in the following issues:
+
+- **[Issue #45](https://github.com/thep2p/go-eth-localnet/issues/45)**: Beacon node initialization, startup, and shutdown
+- **[Issue #46](https://github.com/thep2p/go-eth-localnet/issues/46)**: Validator client integration
+- **[Issue #47](https://github.com/thep2p/go-eth-localnet/issues/47)**: Genesis state generation and BLS key handling
+- **[Issue #48](https://github.com/thep2p/go-eth-localnet/issues/48)**: Beacon API health checks and readiness probes
+- **[Issue #49](https://github.com/thep2p/go-eth-localnet/issues/49)**: Prysm-Geth integration tests
 
 This design allows:
 - Testing of the lifecycle and configuration patterns

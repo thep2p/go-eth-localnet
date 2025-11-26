@@ -35,7 +35,8 @@ func GenerateGenesisState(
 		return nil, fmt.Errorf("at least one validator is required")
 	}
 
-	// TODO: Implement genesis state generation using Prysm v5 API
+	// TODO(#47): Implement genesis state generation using Prysm v5 API
+	// https://github.com/thep2p/go-eth-localnet/issues/47
 	// This will involve:
 	// 1. Converting ValidatorKeys []string to []*ethpb.Deposit using withdrawalAddress
 	// 2. Creating a beacon state with the configured validators
@@ -56,7 +57,8 @@ func DeriveGenesisRoot(genesisState []byte) ([32]byte, error) {
 		return [32]byte{}, fmt.Errorf("genesis state is empty")
 	}
 
-	// TODO: Implement genesis root calculation
+	// TODO(#47): Implement genesis root calculation
+	// https://github.com/thep2p/go-eth-localnet/issues/47
 	// This will compute the SSZ hash tree root of the beacon state
 
 	return [32]byte{}, fmt.Errorf("genesis root calculation not yet implemented")
@@ -89,7 +91,8 @@ func GenerateTestValidators(count int) ([]string, error) {
 
 	keys := make([]string, count)
 	for i := 0; i < count; i++ {
-		// TODO: Implement deterministic BLS12-381 key generation for testing
+		// TODO(#47): Implement deterministic BLS12-381 key generation for testing
+		// https://github.com/thep2p/go-eth-localnet/issues/47
 		// This will generate proper BLS keys from a deterministic seed
 		keys[i] = fmt.Sprintf("test-validator-key-%d", i)
 	}

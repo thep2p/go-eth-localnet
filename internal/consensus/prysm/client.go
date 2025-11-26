@@ -31,13 +31,13 @@ type Client struct {
 	// The beacon node implements the Ethereum consensus protocol,
 	// processing attestations and blocks, and coordinating with
 	// the execution layer via Engine API.
-	//nolint:unused // Will be used when Prysm integration is implemented
+	//nolint:unused // Will be used in #45: https://github.com/thep2p/go-eth-localnet/issues/45
 	beaconNode interface{}
 
 	// validatorClient is the in-process Prysm validator client.
 	// The validator client manages validator keys and duties,
 	// producing blocks and attestations when assigned.
-	//nolint:unused // Will be used when Prysm integration is implemented
+	//nolint:unused // Will be used in #46: https://github.com/thep2p/go-eth-localnet/issues/46
 	validatorClient interface{}
 }
 
@@ -110,7 +110,8 @@ func (c *Client) startup(ctx modules.ThrowableContext) {
 func (c *Client) initBeaconNode(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("initializing prysm beacon node")
 
-	// TODO: Implement beacon node initialization using Prysm v5 API
+	// TODO(#45): Implement beacon node initialization using Prysm v5 API
+	// https://github.com/thep2p/go-eth-localnet/issues/45
 	// This will involve:
 	// 1. Creating beacon node configuration from consensus.Config
 	// 2. Setting up genesis state
@@ -124,7 +125,8 @@ func (c *Client) initBeaconNode(ctx modules.ThrowableContext) error {
 func (c *Client) startBeaconNode(ctx modules.ThrowableContext) error {
 	c.logger.Info().Msg("starting prysm beacon node")
 
-	// TODO: Implement beacon node startup using Prysm v5 API
+	// TODO(#45): Implement beacon node startup using Prysm v5 API
+	// https://github.com/thep2p/go-eth-localnet/issues/45
 	// This will call the beacon node's Start method
 
 	return nil
@@ -134,7 +136,8 @@ func (c *Client) startBeaconNode(ctx modules.ThrowableContext) error {
 func (c *Client) initValidator(ctx modules.ThrowableContext) error {
 	c.logger.Info().Int("key_count", len(c.config.ValidatorKeys)).Msg("initializing prysm validator")
 
-	// TODO: Implement validator initialization using Prysm v5 API
+	// TODO(#46): Implement validator initialization using Prysm v5 API
+	// https://github.com/thep2p/go-eth-localnet/issues/46
 	// This will involve:
 	// 1. Creating validator client configuration
 	// 2. Loading validator keys
@@ -149,7 +152,8 @@ func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
 	_ = ctx // will be used when health check is implemented
 	c.logger.Info().Msg("waiting for beacon api to be ready")
 
-	// TODO: Implement actual health check against beacon API
+	// TODO(#48): Implement actual health check against beacon API
+	// https://github.com/thep2p/go-eth-localnet/issues/48
 
 	return nil
 }
@@ -158,7 +162,8 @@ func (c *Client) waitForBeaconAPI(ctx modules.ThrowableContext) error {
 func (c *Client) shutdown() {
 	c.logger.Info().Msg("shutting down prysm components")
 
-	// TODO: Implement graceful shutdown
+	// TODO(#45): Implement graceful shutdown
+	// https://github.com/thep2p/go-eth-localnet/issues/45
 	// This will:
 	// 1. Stop validator client
 	// 2. Stop beacon node

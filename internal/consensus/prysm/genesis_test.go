@@ -151,7 +151,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 
 // TestGenerateGenesisState verifies genesis state generation.
 func TestGenerateGenesisState(t *testing.T) {
-	t.Skip("Skipping until Prysm integration is implemented")
+	t.Skip("Skipping until #47 is implemented: https://github.com/thep2p/go-eth-localnet/issues/47")
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
@@ -193,7 +193,7 @@ func TestDeriveGenesisRootValidation(t *testing.T) {
 
 // TestDeriveGenesisRoot verifies genesis root calculation.
 func TestDeriveGenesisRoot(t *testing.T) {
-	t.Skip("Skipping until Prysm integration is implemented")
+	t.Skip("Skipping until #47 is implemented: https://github.com/thep2p/go-eth-localnet/issues/47")
 	t.Parallel()
 
 	// Create a dummy genesis state for testing
