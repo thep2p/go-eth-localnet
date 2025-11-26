@@ -23,22 +23,6 @@ func TestDefaultGenesisTime(t *testing.T) {
 	assert.True(t, now.Sub(genesisTime) < time.Minute)
 }
 
-// TestMinGenesisActiveValidatorCount verifies minimum validator count.
-func TestMinGenesisActiveValidatorCount(t *testing.T) {
-	t.Parallel()
-
-	minCount := prysm.MinGenesisActiveValidatorCount()
-	assert.Equal(t, 1, minCount, "Local development should require only 1 validator")
-}
-
-// TestGenesisDelay verifies genesis delay configuration.
-func TestGenesisDelay(t *testing.T) {
-	t.Parallel()
-
-	delay := prysm.GenesisDelay()
-	assert.Equal(t, time.Duration(0), delay, "Local development should have no delay")
-}
-
 // TestGenerateTestValidators verifies validator generation for testing.
 func TestGenerateTestValidators(t *testing.T) {
 	t.Parallel()

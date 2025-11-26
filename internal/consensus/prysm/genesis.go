@@ -99,23 +99,3 @@ func GenerateTestValidators(count int) ([]string, error) {
 
 	return keys, nil
 }
-
-// MinGenesisActiveValidatorCount returns the minimum number of validators
-// needed to start a beacon chain.
-//
-// For Ethereum mainnet, this is 16384 validators. For local development,
-// we can use a much smaller number (typically 1-4 validators).
-func MinGenesisActiveValidatorCount() int {
-	// For local development, we only need 1 validator
-	// (mainnet requires 16384)
-	return 1
-}
-
-// GenesisDelay returns the time to wait after genesis before producing blocks.
-//
-// This gives nodes time to initialize and connect to peers. For local
-// development, this can be very short or zero.
-func GenesisDelay() time.Duration {
-	// For local development, start producing blocks immediately
-	return 0
-}
