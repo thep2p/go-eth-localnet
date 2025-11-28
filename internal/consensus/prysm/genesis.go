@@ -72,13 +72,6 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 // WARNING: The generated keys are deterministic and MUST NOT be used
 // in production. They are suitable only for local testing.
 func GenerateTestValidators(count int) ([]string, error) {
-	if count <= 0 {
-		return nil, fmt.Errorf("validator count must be positive")
-	}
-	if count > 1000 {
-		return nil, fmt.Errorf("validator count too large: %d (max 1000)", count)
-	}
-
 	keys := make([]string, count)
 	for i := 0; i < count; i++ {
 		// TODO(#47): Implement deterministic BLS12-381 key generation for testing

@@ -113,6 +113,429 @@ internal/unittest/          # All test utilities and mocks
   ```
 - When integrating with Ethereum libraries, use their types directly
 
+## Design Principles: Simplicity Over Abstraction
+
+**CRITICAL: Question every abstraction before creating it.**
+
+This codebase values directness and simplicity. Follow these principles:
+
+### Avoid Thin Wrapper Functions
+- **NEVER create functions that just return constants or wrap simple one-liners**
+- If a function doesn't add meaningful business logic, inline it
+- Ask: "Does this function add domain constraints, business logic, or simplify complexity?"
+- If the answer is no, don't create it
+
+**Anti-patterns (DO NOT DO THIS):**
+```go
+// Bad: Just returns a constant - use the constant directly
+func MinGenesisActiveValidatorCount() uint64 {
+    return 64
+}
+
+// Bad: Wraps a simple calculation - inline it where needed
+func DefaultGenesisTime() time.Time {
+    return time.Now().Add(-30 * time.Second)
+}
+
+// Bad: Unnecessary getter - just access the field
+func (c *Config) GetChainID() uint64 {
+    return c.ChainID
+}
+```
+
+**Correct patterns:**
+```go
+// Good: Use constants directly
+const minGenesisValidators = 64
+
+// Good: Inline simple logic with explanatory comments
+cfg := consensus.Config{
+    // Genesis time 30 seconds in past ensures immediate block production
+    GenesisTime: time.Now().Add(-30 * time.Second),
+}
+
+// Good: Direct field access
+if cfg.ChainID == 1337 {
+    // ...
+}
+```
+
+### Avoid Thin Wrapper Types
+- **NEVER create structs that just group fields without adding behavior**
+- If a type doesn't enforce invariants or add domain logic, don't create it
+- Use existing types directly or add fields to existing structs
+
+**Anti-patterns (DO NOT DO THIS):**
+```go
+// Bad: Adds no value - just use consensus.Config directly
+type GenesisConfig struct {
+    ChainID     uint64
+    GenesisTime time.Time
+    Validators  []ValidatorConfig
+}
+
+// Bad: Thin wrapper with no behavior
+type ValidatorConfig struct {
+    PrivateKey string
+}
+
+// Bad: Wraps existing type with no added value
+type ExecutionHeader struct {
+    BlockHash   common.Hash
+    BlockNumber uint64
+    Timestamp   uint64
+}
+```
+
+**Correct patterns:**
+```go
+// Good: Add fields to existing consensus.Config instead
+type Config struct {
+    ChainID       uint64
+    GenesisTime   time.Time
+    ValidatorKeys []string  // Simple slice, no wrapper needed
+    // ...
+}
+
+// Good: Type with domain constraints and validation
+type Port int
+
+func (p Port) Validate() error {
+    if p < 1024 || p > 65535 {
+        return fmt.Errorf("invalid port: %d", p)
+    }
+    return nil
+}
+```
+
+### Don't Over-Validate Test Helpers
+- Test helper functions should NOT have defensive validation
+- Trust Go's runtime to handle invalid inputs naturally
+- Only validate at public API boundaries, not in test utilities
+
+**Anti-pattern (DO NOT DO THIS):**
+```go
+// Bad: Unnecessary validation in test helper
+func GenerateTestValidators(count int) ([]string, error) {
+    if count <= 0 {
+        return nil, fmt.Errorf("count must be positive")
+    }
+    if count > 1000 {
+        return nil, fmt.Errorf("count too large")
+    }
+    keys := make([]string, count)
+    // ...
+}
+```
+
+**Correct pattern:**
+```go
+// Good: Trust the caller, let Go handle edge cases
+func GenerateTestValidators(count int) ([]string, error) {
+    keys := make([]string, count)  // Panics on negative, empty slice on 0
+    for i := 0; i < count; i++ {
+        keys[i] = fmt.Sprintf("test-key-%d", i)
+    }
+    return keys, nil
+}
+```
+
+### Use Existing Tools and Utilities
+- **ALWAYS check if functionality already exists before implementing**
+- Prefer ecosystem libraries over custom implementations
+- Leverage test utilities from dependencies
+- Don't reinvent patterns already solved in the codebase
+
+**Examples:**
+- Use `skipgraphtest.RequireAllReady` instead of manual select statements
+- Use `common.Hash` from go-ethereum instead of `[32]byte`
+- Use `testutils.NewPort()` instead of hardcoding port numbers
+
+### When to Create Abstractions
+
+Create new types/functions ONLY when they:
+1. **Add domain constraints**: Validation logic that enforces business rules
+2. **Add business logic**: Methods that perform meaningful operations
+3. **Enforce invariants**: Guarantee certain properties always hold
+4. **Simplify complexity**: Coordinate multiple steps with proper error handling
+
+**Test your abstraction:**
+- Does it add meaningful behavior beyond the wrapped type? ✅ Keep it
+- Does it just group fields or wrap a simple operation? ❌ Remove it
+- Could you inline it without losing clarity? ❌ Remove it
+- Does it make the code harder to understand? ❌ Remove it
+
+## Complete Implementation Over Placeholder Code
+
+**CRITICAL: This is the most important principle in this project.**
+
+### The Golden Rule
+
+**Implement each issue/feature from 0% to 100% completion with ZERO placeholders, stubs, or TODOs in core functionality.**
+
+### Why Placeholder Development is Unacceptable
+
+Implementing features as stubs/placeholders/TODOs is the **worst anti-pattern** in software development:
+
+1. **Impossible to evaluate**: Reviewers can't verify if the design actually works
+2. **Hidden complexity**: Real problems only surface during later implementation when they're harder to fix
+3. **Immediate technical debt**: Creates work that should have been done now
+4. **False progress**: Code looks complete but nothing actually functions
+5. **Wasted effort**: Abstractions designed without real implementation usually need complete redesign
+6. **Blocks evaluation**: Can't test real integration or validate architectural decisions
+
+### Anti-Pattern: Horizontal Slicing (NEVER DO THIS)
+
+**WRONG approach - Issue #45: "Implement Prysm Client"**
+```go
+// Bad: Everything is a placeholder
+type Client struct {
+    // TODO(#46): Implement beacon node
+    beaconNode interface{}
+
+    // TODO(#47): Implement validator
+    validator interface{}
+}
+
+func (c *Client) Start(ctx context.Context) error {
+    // TODO(#48): Implement startup logic
+    return fmt.Errorf("not yet implemented")
+}
+
+func (c *Client) Stop() error {
+    // TODO(#49): Implement shutdown
+    return fmt.Errorf("not yet implemented")
+}
+
+func (c *Client) GetSyncStatus() (SyncStatus, error) {
+    // TODO(#50): Implement sync status check
+    return SyncStatus{}, fmt.Errorf("not yet implemented")
+}
+
+// Tests also have placeholders
+func TestClientStart(t *testing.T) {
+    t.Skip("Skipping until #48 is implemented")
+}
+```
+
+**Why this is WRONG:**
+- ✗ Nothing works - entire PR is just structure
+- ✗ Can't test if the design is correct
+- ✗ Can't verify it integrates with Prysm
+- ✗ Issues #46-50 might reveal Client interface is wrong
+- ✗ Reviewer has no idea if this will actually work
+- ✗ No value delivered - just promises of future work
+
+### Correct Pattern: Vertical Slicing (DO THIS)
+
+**RIGHT approach - Issue #45: "Implement basic Prysm beacon node lifecycle"**
+
+**Scope:** Start beacon node, verify Ready state, check sync status, stop gracefully
+**NOT in scope:** Validators, checkpoint sync, P2P configuration (separate issues)
+
+```go
+// Good: Complete implementation for defined scope
+type Client struct {
+    beaconNode *beacon.Node  // Real type from Prysm
+    config     Config
+    logger     zerolog.Logger
+    ready      chan struct{}
+    done       chan struct{}
+}
+
+func (c *Client) Start(ctx context.Context) error {
+    // Real implementation that works
+    node, err := beacon.New(c.config.BeaconConfig)
+    if err != nil {
+        return fmt.Errorf("failed to create beacon node: %w", err)
+    }
+
+    if err := node.Start(ctx); err != nil {
+        return fmt.Errorf("failed to start beacon node: %w", err)
+    }
+
+    c.beaconNode = node
+    close(c.ready)
+
+    go c.waitForShutdown(ctx)
+    return nil
+}
+
+func (c *Client) Stop() error {
+    // Real implementation
+    return c.beaconNode.Shutdown()
+}
+
+func (c *Client) GetSyncStatus() (SyncStatus, error) {
+    // Real implementation with actual Prysm API calls
+    status, err := c.beaconNode.SyncStatus(context.Background())
+    if err != nil {
+        return SyncStatus{}, fmt.Errorf("failed to get sync status: %w", err)
+    }
+
+    return SyncStatus{
+        HeadSlot:  status.HeadSlot,
+        IsSyncing: status.IsSyncing,
+    }, nil
+}
+
+// Tests work and demonstrate the feature
+func TestClientLifecycle(t *testing.T) {
+    client := setupTestClient(t)
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    client.Start(ctx)
+    skipgraphtest.RequireAllReady(t, client)
+
+    // Actually works!
+    status, err := client.GetSyncStatus()
+    require.NoError(t, err)
+    require.NotNil(t, status)
+
+    cancel()
+    skipgraphtest.RequireAllDone(t, client)
+}
+```
+
+**Why this is RIGHT:**
+- ✅ Everything works end-to-end for the defined scope
+- ✅ Can demo the feature functioning
+- ✅ Tests prove it integrates with Prysm correctly
+- ✅ Reviewer can evaluate if the design is sound
+- ✅ Delivers real value - beacon node lifecycle works
+- ✅ Next issue can build on solid foundation
+
+### Correct Issue Breakdown
+
+**WRONG (horizontal slicing):**
+```
+Issue #1: Create all types and interfaces ❌
+Issue #2: Add all method stubs ❌
+Issue #3: Implement configuration ❌
+Issue #4: Implement beacon node ❌
+Issue #5: Implement validators ❌
+Issue #6: Implement sync status ❌
+```
+
+**RIGHT (vertical slicing):**
+```
+Issue #1: Basic beacon node lifecycle (start, ready, stop, sync status) ✅
+  - Scope: Minimal working beacon node
+  - Delivers: Can start/stop Prysm beacon node
+
+Issue #2: Add validator support ✅
+  - Scope: Load validators, sign attestations
+  - Delivers: Beacon node can run validators
+
+Issue #3: Add checkpoint sync ✅
+  - Scope: Bootstrap from checkpoint
+  - Delivers: Fast sync capability
+
+Issue #4: Add P2P peer configuration ✅
+  - Scope: Bootnodes, static peers
+  - Delivers: Network connectivity control
+```
+
+### Requirements for Every PR
+
+Before submitting, verify:
+
+**✅ MUST have:**
+1. Complete working implementation for the defined scope
+2. Full test coverage that actually runs and passes
+3. Can demo the feature working end-to-end
+4. All public methods have real implementations
+5. Tests use real integrations, not mocks for everything
+6. Documentation explains what works NOW
+
+**❌ MUST NOT have:**
+1. TODOs in core functionality implementation
+2. Methods that return "not implemented" errors
+3. Empty interface{} fields waiting for future population
+4. Tests that skip with "waiting for issue #X"
+5. Stub methods that do nothing
+6. Placeholder types with no real fields
+
+### Acceptable Use of TODOs
+
+**✅ Acceptable (future enhancements):**
+```go
+// OK: Working implementation, noting future optimization
+func (c *Client) fetchPeers() []Peer {
+    // Works correctly now
+    peers := c.node.GetPeers()
+
+    // TODO: Add caching when metrics show it's needed
+    return peers
+}
+
+// OK: Test works, noting future test case
+func TestClientBasics(t *testing.T) {
+    // Complete test that works
+    // ...
+
+    // TODO: Add test for checkpoint sync once #47 lands
+}
+```
+
+**❌ Unacceptable (core functionality):**
+```go
+// WRONG: Core method doesn't work
+func (c *Client) Start(ctx context.Context) error {
+    // TODO(#123): Implement beacon node startup
+    return fmt.Errorf("not implemented")
+}
+
+// WRONG: Essential functionality missing
+func (c *Client) GetValidators() ([]Validator, error) {
+    // TODO(#124): Query validator status from Prysm
+    return nil, nil
+}
+```
+
+### How to Handle Large Scope
+
+**If you realize the scope is too large:**
+
+✅ **DO:** Break into smaller complete features
+- Issue #1: Beacon node only (validators in #2)
+- Issue #2: Add validators
+- Each issue delivers complete working functionality
+
+❌ **DON'T:** Implement everything as stubs
+- Issue #1: All stubs and TODOs for everything
+- Issue #2-5: Fill in the TODOs
+- Nothing works until issue #5
+
+### PR Review Questions
+
+**Before requesting review, ask yourself:**
+
+1. **Can I demo this feature working?** If no → it's not ready
+2. **Do all public methods work?** If no → scope too large, reduce it
+3. **Can reviewer understand what this does?** If no → too many TODOs
+4. **Would I deploy this for its intended scope?** If no → it's incomplete
+5. **Can tests run without skipping?** If no → implementation incomplete
+
+**If any answer is "no", the PR is not ready.**
+
+### Examples from This Project
+
+**Previous anti-pattern (what NOT to do):**
+- Created `Client`, `Launcher` types with all methods as stubs
+- Added TODOs for #45, #46, #47, #48, #49
+- Nothing worked, everything deferred to future issues
+- Impossible to evaluate if the design was correct
+- Created unnecessary abstractions (GenesisConfig, ValidatorConfig)
+
+**Correct approach (what TO do):**
+- Issue #1: Implement basic launcher with real Prysm integration
+- Issue #2: Add Client lifecycle with working start/stop
+- Issue #3: Add validator loading that actually works
+- Each issue delivers demonstrable value
+
 ## Code Style
 - Use `gofmt` to format your code before committing.
 - Follow Go's idiomatic style and conventions.

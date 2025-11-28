@@ -16,9 +16,8 @@ func TestGenerateTestValidators(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		count     int
-		wantError string
+		name  string
+		count int
 	}{
 		{
 			name:  "single validator",
@@ -28,33 +27,11 @@ func TestGenerateTestValidators(t *testing.T) {
 			name:  "multiple validators",
 			count: 4,
 		},
-		{
-			name:      "zero validators",
-			count:     0,
-			wantError: "must be positive",
-		},
-		{
-			name:      "negative validators",
-			count:     -1,
-			wantError: "must be positive",
-		},
-		{
-			name:      "too many validators",
-			count:     1001,
-			wantError: "too large",
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			keys, err := prysm.GenerateTestValidators(tt.count)
-
-			if tt.wantError != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantError)
-				return
-			}
-
 			require.NoError(t, err)
 			require.Len(t, keys, tt.count)
 
