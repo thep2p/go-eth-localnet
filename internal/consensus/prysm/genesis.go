@@ -1,9 +1,17 @@
 package prysm
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/signing"
+	state_native "github.com/prysmaticlabs/prysm/v5/beacon-chain/state/state-native"
+	"github.com/prysmaticlabs/prysm/v5/config/params"
+	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
+	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
+	"github.com/prysmaticlabs/prysm/v5/runtime/interop"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 )
 
@@ -34,16 +42,50 @@ func GenerateGenesisState(
 		return nil, fmt.Errorf("at least one validator is required")
 	}
 
-	// TODO(#47): Implement genesis state generation using Prysm v5 API
-	// https://github.com/thep2p/go-eth-localnet/issues/47
-	// This will involve:
-	// 1. Converting ValidatorKeys []string to []*ethpb.Deposit using withdrawalAddress
-	// 2. Creating a beacon state with the configured validators
-	// 3. Converting gethGenesis* params to *enginev1.ExecutionPayloadHeader
-	// 4. Calculating the state root
-	// 5. Marshaling the state to SSZ format for Prysm
+	// Parse BLS secret keys from hex
+	secretKeys := make([]bls.SecretKey, len(cfg.ValidatorKeys))
+	publicKeys := make([]bls.PublicKey, len(cfg.ValidatorKeys))
+	for i, keyHex := range cfg.ValidatorKeys {
+		keyBytes, err := hexutil.Decode(keyHex)
+		if err != nil {
+			return nil, fmt.Errorf("decode validator key %d: %w", i, err)
+		}
 
-	return nil, fmt.Errorf("genesis state generation not yet implemented")
+		secretKey, err := bls.SecretKeyFromBytes(keyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse validator key %d: %w", i, err)
+		}
+
+		secretKeys[i] = secretKey
+		publicKeys[i] = secretKey.PublicKey()
+	}
+
+	// Create deposit data with custom withdrawal address
+	depositDataItems, depositDataRoots, err := createDepositDataWithWithdrawalAddress(secretKeys, publicKeys, withdrawalAddress)
+	if err != nil {
+		return nil, fmt.Errorf("create deposit data: %w", err)
+	}
+
+	// Generate genesis state using interop helpers (handles merkle proofs correctly)
+	genesisTime := uint64(cfg.GenesisTime.Unix())
+	protoState, _, err := interop.GenerateGenesisStateFromDepositData(context.Background(), genesisTime, depositDataItems, depositDataRoots)
+	if err != nil {
+		return nil, fmt.Errorf("generate genesis state: %w", err)
+	}
+
+	// Wrap proto state in beacon state interface
+	st, err := state_native.InitializeFromProtoPhase0(protoState)
+	if err != nil {
+		return nil, fmt.Errorf("initialize state: %w", err)
+	}
+
+	// Marshal state to SSZ format
+	sszBytes, err := st.MarshalSSZ()
+	if err != nil {
+		return nil, fmt.Errorf("marshal state to ssz: %w", err)
+	}
+
+	return sszBytes, nil
 }
 
 // DeriveGenesisRoot calculates the genesis beacon state root.
@@ -56,11 +98,85 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 		return common.Hash{}, fmt.Errorf("genesis state is empty")
 	}
 
-	// TODO(#47): Implement genesis root calculation
-	// https://github.com/thep2p/go-eth-localnet/issues/47
-	// This will compute the SSZ hash tree root of the beacon state
+	// Unmarshal SSZ into proto message (Phase0 for now)
+	protoState := &ethpb.BeaconState{}
+	if err := protoState.UnmarshalSSZ(genesisState); err != nil {
+		return common.Hash{}, fmt.Errorf("unmarshal ssz: %w", err)
+	}
 
-	return common.Hash{}, fmt.Errorf("genesis root calculation not yet implemented")
+	// Wrap in beacon state interface
+	st, err := state_native.InitializeFromProtoPhase0(protoState)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("initialize state: %w", err)
+	}
+
+	// Compute hash tree root
+	root, err := st.HashTreeRoot(context.Background())
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("compute hash tree root: %w", err)
+	}
+
+	return common.BytesToHash(root[:]), nil
+}
+
+// createDepositDataWithWithdrawalAddress creates deposit data for validators with a custom withdrawal address.
+func createDepositDataWithWithdrawalAddress(
+	secretKeys []bls.SecretKey,
+	publicKeys []bls.PublicKey,
+	withdrawalAddress common.Address,
+) ([]*ethpb.Deposit_Data, [][]byte, error) {
+	depositDataItems := make([]*ethpb.Deposit_Data, len(secretKeys))
+	depositDataRoots := make([][]byte, len(secretKeys))
+
+	// Create withdrawal credentials (0x01 prefix for execution address)
+	withdrawalCreds := make([]byte, 32)
+	withdrawalCreds[0] = params.BeaconConfig().ETH1AddressWithdrawalPrefixByte
+	copy(withdrawalCreds[12:], withdrawalAddress.Bytes())
+
+	for i := range secretKeys {
+		// Create deposit message
+		depositMsg := &ethpb.DepositMessage{
+			PublicKey:             publicKeys[i].Marshal(),
+			WithdrawalCredentials: withdrawalCreds,
+			Amount:                params.BeaconConfig().MaxEffectiveBalance,
+		}
+
+		// Sign the deposit message
+		domain, err := signing.ComputeDomain(
+			params.BeaconConfig().DomainDeposit,
+			params.BeaconConfig().GenesisForkVersion,
+			params.BeaconConfig().ZeroHash[:],
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("compute domain: %w", err)
+		}
+
+		signingRoot, err := signing.ComputeSigningRoot(depositMsg, domain)
+		if err != nil {
+			return nil, nil, fmt.Errorf("compute signing root: %w", err)
+		}
+
+		signature := secretKeys[i].Sign(signingRoot[:])
+
+		// Create deposit data
+		depositData := &ethpb.Deposit_Data{
+			PublicKey:             depositMsg.PublicKey,
+			WithdrawalCredentials: depositMsg.WithdrawalCredentials,
+			Amount:                depositMsg.Amount,
+			Signature:             signature.Marshal(),
+		}
+
+		// Compute deposit data root
+		root, err := depositData.HashTreeRoot()
+		if err != nil {
+			return nil, nil, fmt.Errorf("hash tree root: %w", err)
+		}
+
+		depositDataItems[i] = depositData
+		depositDataRoots[i] = root[:]
+	}
+
+	return depositDataItems, depositDataRoots, nil
 }
 
 // GenerateTestValidators creates validator keys for testing.
@@ -72,12 +188,15 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 // WARNING: The generated keys are deterministic and MUST NOT be used
 // in production. They are suitable only for local testing.
 func GenerateTestValidators(count int) ([]string, error) {
+	// Use Prysm's deterministic key generation for interop compatibility
+	secretKeys, _, err := interop.DeterministicallyGenerateKeys(0, uint64(count))
+	if err != nil {
+		return nil, fmt.Errorf("generate keys: %w", err)
+	}
+
 	keys := make([]string, count)
-	for i := 0; i < count; i++ {
-		// TODO(#47): Implement deterministic BLS12-381 key generation for testing
-		// https://github.com/thep2p/go-eth-localnet/issues/47
-		// This will generate proper BLS keys from a deterministic seed
-		keys[i] = fmt.Sprintf("test-validator-key-%d", i)
+	for i, secretKey := range secretKeys {
+		keys[i] = hexutil.Encode(secretKey.Marshal())
 	}
 
 	return keys, nil

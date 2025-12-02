@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
@@ -35,9 +37,20 @@ func TestGenerateTestValidators(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, keys, tt.count)
 
-			// Verify all keys are non-empty strings
-			for i, key := range keys {
-				assert.NotEmpty(t, key, "validator %d should have private key", i)
+			// Verify all keys are valid BLS12-381 keys
+			for i, keyHex := range keys {
+				assert.NotEmpty(t, keyHex, "validator %d should have private key", i)
+
+				// Decode and parse as BLS key
+				keyBytes, err := hexutil.Decode(keyHex)
+				require.NoError(t, err, "validator %d key should be valid hex", i)
+
+				secretKey, err := bls.SecretKeyFromBytes(keyBytes)
+				require.NoError(t, err, "validator %d key should be valid bls key", i)
+
+				// Verify we can derive public key
+				publicKey := secretKey.PublicKey()
+				require.NotNil(t, publicKey, "validator %d should have public key", i)
 			}
 
 			// Verify keys are unique
@@ -46,6 +59,21 @@ func TestGenerateTestValidators(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGenerateTestValidatorsDeterminism verifies keys are deterministic.
+func TestGenerateTestValidatorsDeterminism(t *testing.T) {
+	t.Parallel()
+
+	// Generate validators twice
+	keys1, err := prysm.GenerateTestValidators(10)
+	require.NoError(t, err)
+
+	keys2, err := prysm.GenerateTestValidators(10)
+	require.NoError(t, err)
+
+	// Verify same keys are generated
+	require.Equal(t, keys1, keys2, "same seed should generate same keys")
 }
 
 // TestGenerateGenesisStateValidation verifies genesis state validation.
@@ -100,7 +128,6 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 
 // TestGenerateGenesisState verifies genesis state generation.
 func TestGenerateGenesisState(t *testing.T) {
-	t.Skip("Skipping until #47 is implemented: https://github.com/thep2p/go-eth-localnet/issues/47")
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
@@ -123,6 +150,11 @@ func TestGenerateGenesisState(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotEmpty(t, state)
+
+	// Verify we can derive the genesis root
+	root, err := prysm.DeriveGenesisRoot(state)
+	require.NoError(t, err)
+	require.NotEqual(t, common.Hash{}, root)
 }
 
 // TestDeriveGenesisRootValidation verifies genesis root validation.
@@ -142,13 +174,32 @@ func TestDeriveGenesisRootValidation(t *testing.T) {
 
 // TestDeriveGenesisRoot verifies genesis root calculation.
 func TestDeriveGenesisRoot(t *testing.T) {
-	t.Skip("Skipping until #47 is implemented: https://github.com/thep2p/go-eth-localnet/issues/47")
 	t.Parallel()
 
-	// Create a dummy genesis state for testing
-	genesisState := []byte("test-genesis-state")
+	// Generate a real genesis state for testing
+	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	validatorKeys, err := prysm.GenerateTestValidators(2)
+	require.NoError(t, err)
 
+	now := time.Now()
+	cfg := consensus.Config{
+		ChainID:       1337,
+		GenesisTime:   now,
+		ValidatorKeys: validatorKeys,
+		FeeRecipient:  withdrawalAddr,
+	}
+
+	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+	genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddr, gethGenesisHash, 0, uint64(now.Unix()))
+	require.NoError(t, err)
+
+	// Test deriving root from the generated state
 	root, err := prysm.DeriveGenesisRoot(genesisState)
 	require.NoError(t, err)
 	require.NotEqual(t, common.Hash{}, root)
+
+	// Verify determinism - same state should produce same root
+	root2, err := prysm.DeriveGenesisRoot(genesisState)
+	require.NoError(t, err)
+	require.Equal(t, root, root2)
 }
