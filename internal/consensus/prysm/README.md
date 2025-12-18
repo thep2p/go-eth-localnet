@@ -146,15 +146,16 @@ cfg := consensus.Config{
     // ... other config fields ...
 }
 
-// Generate genesis state from config and Geth genesis block info
-withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-genesisState, err := prysm.GenerateGenesisState(
-    cfg,
-    withdrawalAddr,
-    genesisBlockHash,
-    genesisBlockNumber,
-    genesisBlockTimestamp,
-)
+// Generate withdrawal addresses - one per validator
+withdrawalAddrs := make([]common.Address, len(validatorKeys))
+for i := range withdrawalAddrs {
+    // In production, each validator would have a unique address
+    // For local dev, you can use the same address or generate unique ones
+    withdrawalAddrs[i] = common.HexToAddress("0x1234567890123456789012345678901234567890")
+}
+
+// Generate genesis state from config
+genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
 if err != nil {
     log.Fatal(err)
 }

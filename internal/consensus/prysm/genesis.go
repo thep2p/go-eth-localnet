@@ -20,17 +20,19 @@ import (
 // GenerateGenesisState performs the following steps:
 // 1. Converts validator keys to Prysm deposits
 // 2. Creates the beacon state with configured validators
-// 3. Sets up the execution payload header linking to Geth genesis block
-// 4. Calculates the genesis state root
+// 3. Marshals to SSZ format for Prysm
+//
+// The withdrawalAddresses parameter specifies the ethereum execution layer addresses
+// where each validator's rewards and withdrawn stake will be sent. Each validator
+// earns rewards independently and has its own withdrawal credentials. The addresses
+// are encoded into the withdrawal credentials (0x01 prefix format) for each validator.
+// The number of withdrawal addresses must match the number of validator keys.
 //
 // The returned genesis state can be used to initialize a Prysm beacon node.
 // Returns an error if the configuration is invalid or genesis creation fails.
 func GenerateGenesisState(
 	cfg consensus.Config,
-	withdrawalAddress common.Address,
-	gethGenesisHash common.Hash,
-	gethGenesisNumber uint64,
-	gethGenesisTimestamp uint64,
+	withdrawalAddresses []common.Address,
 ) ([]byte, error) {
 	if cfg.ChainID == 0 {
 		return nil, fmt.Errorf("chain id is required")
@@ -40,6 +42,9 @@ func GenerateGenesisState(
 	}
 	if len(cfg.ValidatorKeys) == 0 {
 		return nil, fmt.Errorf("at least one validator is required")
+	}
+	if len(withdrawalAddresses) != len(cfg.ValidatorKeys) {
+		return nil, fmt.Errorf("withdrawal addresses count (%d) must match validator keys count (%d)", len(withdrawalAddresses), len(cfg.ValidatorKeys))
 	}
 
 	// Parse BLS secret keys from hex
@@ -60,8 +65,8 @@ func GenerateGenesisState(
 		publicKeys[i] = secretKey.PublicKey()
 	}
 
-	// Create deposit data with custom withdrawal address
-	depositDataItems, depositDataRoots, err := createDepositDataWithWithdrawalAddress(secretKeys, publicKeys, withdrawalAddress)
+	// Create deposit data with per-validator withdrawal addresses
+	depositDataItems, depositDataRoots, err := createDepositDataWithWithdrawalAddresses(secretKeys, publicKeys, withdrawalAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("create deposit data: %w", err)
 	}
@@ -119,21 +124,21 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	return common.BytesToHash(root[:]), nil
 }
 
-// createDepositDataWithWithdrawalAddress creates deposit data for validators with a custom withdrawal address.
-func createDepositDataWithWithdrawalAddress(
+// createDepositDataWithWithdrawalAddresses creates deposit data for validators with per-validator withdrawal addresses.
+func createDepositDataWithWithdrawalAddresses(
 	secretKeys []bls.SecretKey,
 	publicKeys []bls.PublicKey,
-	withdrawalAddress common.Address,
+	withdrawalAddresses []common.Address,
 ) ([]*ethpb.Deposit_Data, [][]byte, error) {
 	depositDataItems := make([]*ethpb.Deposit_Data, len(secretKeys))
 	depositDataRoots := make([][]byte, len(secretKeys))
 
-	// Create withdrawal credentials (0x01 prefix for execution address)
-	withdrawalCreds := make([]byte, 32)
-	withdrawalCreds[0] = params.BeaconConfig().ETH1AddressWithdrawalPrefixByte
-	copy(withdrawalCreds[12:], withdrawalAddress.Bytes())
-
 	for i := range secretKeys {
+		// Create withdrawal credentials (0x01 prefix for execution address)
+		withdrawalCreds := make([]byte, 32)
+		withdrawalCreds[0] = params.BeaconConfig().ETH1AddressWithdrawalPrefixByte
+		copy(withdrawalCreds[12:], withdrawalAddresses[i].Bytes())
+
 		// Create deposit message
 		depositMsg := &ethpb.DepositMessage{
 			PublicKey:             publicKeys[i].Marshal(),

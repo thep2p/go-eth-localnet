@@ -83,12 +83,12 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validatorKeys, err := prysm.GenerateTestValidators(1)
 	require.NoError(t, err)
-	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
 	tests := []struct {
-		name      string
-		cfg       consensus.Config
-		wantError string
+		name              string
+		cfg               consensus.Config
+		withdrawalAddrs   []common.Address
+		wantError         string
 	}{
 		{
 			name: "missing chain id",
@@ -96,7 +96,8 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 				GenesisTime:   time.Now(),
 				ValidatorKeys: validatorKeys,
 			},
-			wantError: "chain id",
+			withdrawalAddrs: []common.Address{withdrawalAddr},
+			wantError:       "chain id",
 		},
 		{
 			name: "missing genesis time",
@@ -104,7 +105,8 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 				ChainID:       1337,
 				ValidatorKeys: validatorKeys,
 			},
-			wantError: "genesis time",
+			withdrawalAddrs: []common.Address{withdrawalAddr},
+			wantError:       "genesis time",
 		},
 		{
 			name: "missing validators",
@@ -112,13 +114,24 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 				ChainID:     1337,
 				GenesisTime: time.Now(),
 			},
-			wantError: "at least one validator",
+			withdrawalAddrs: []common.Address{withdrawalAddr},
+			wantError:       "at least one validator",
+		},
+		{
+			name: "mismatched withdrawal addresses count",
+			cfg: consensus.Config{
+				ChainID:       1337,
+				GenesisTime:   time.Now(),
+				ValidatorKeys: validatorKeys,
+			},
+			withdrawalAddrs: []common.Address{}, // Empty slice, should error
+			wantError:       "withdrawal addresses count",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state, err := prysm.GenerateGenesisState(tt.cfg, withdrawalAddr, gethGenesisHash, 0, uint64(time.Now().Unix()))
+			state, err := prysm.GenerateGenesisState(tt.cfg, tt.withdrawalAddrs)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantError)
 			require.Nil(t, state)
@@ -130,23 +143,25 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 func TestGenerateGenesisState(t *testing.T) {
 	t.Parallel()
 
-	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validatorKeys, err := prysm.GenerateTestValidators(4)
 	require.NoError(t, err)
 
-	now := time.Now()
-	cfg := consensus.Config{
-		ChainID:       1337,
-		GenesisTime:   now,
-		ValidatorKeys: validatorKeys,
-		FeeRecipient:  withdrawalAddr,
+	// Create unique withdrawal address for each validator
+	withdrawalAddrs := []common.Address{
+		common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		common.HexToAddress("0x2222222222222222222222222222222222222222"),
+		common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		common.HexToAddress("0x4444444444444444444444444444444444444444"),
 	}
 
-	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	gethGenesisNumber := uint64(0)
-	gethGenesisTimestamp := uint64(now.Unix())
+	cfg := consensus.Config{
+		ChainID:       1337,
+		GenesisTime:   time.Now(),
+		ValidatorKeys: validatorKeys,
+		FeeRecipient:  withdrawalAddrs[0],
+	}
 
-	state, err := prysm.GenerateGenesisState(cfg, withdrawalAddr, gethGenesisHash, gethGenesisNumber, gethGenesisTimestamp)
+	state, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotEmpty(t, state)
@@ -177,20 +192,23 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	t.Parallel()
 
 	// Generate a real genesis state for testing
-	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	validatorKeys, err := prysm.GenerateTestValidators(2)
 	require.NoError(t, err)
 
-	now := time.Now()
-	cfg := consensus.Config{
-		ChainID:       1337,
-		GenesisTime:   now,
-		ValidatorKeys: validatorKeys,
-		FeeRecipient:  withdrawalAddr,
+	// Create unique withdrawal address for each validator
+	withdrawalAddrs := []common.Address{
+		common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		common.HexToAddress("0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"),
 	}
 
-	gethGenesisHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddr, gethGenesisHash, 0, uint64(now.Unix()))
+	cfg := consensus.Config{
+		ChainID:       1337,
+		GenesisTime:   time.Now(),
+		ValidatorKeys: validatorKeys,
+		FeeRecipient:  withdrawalAddrs[0],
+	}
+
+	genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
 	require.NoError(t, err)
 
 	// Test deriving root from the generated state
