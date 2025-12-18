@@ -448,9 +448,93 @@ func (c *Client) GetSyncStatus() (SyncStatus, error) {
    - Run `make lint` to ensure code quality
    - Run `make test` to verify all tests pass
    - Ensure new code follows existing patterns
-   - Add or update godoc comments for new/modified functions
+   - Add or update godoc comments for new/modified functions (see Function Documentation Guidelines below)
    - Use `gofmt` to format code before committing
    - Follow Go's idiomatic style and conventions
+
+### Function Documentation Guidelines
+
+**CRITICAL: Every function and method must have succinct documentation that:**
+
+1. **Explains what the function does** - One sentence describing purpose
+2. **Documents parameters** - What each parameter represents
+3. **Documents return values** - What is returned
+4. **Documents error handling** - Critical requirement:
+   - If function returns error, classify errors as either:
+     - **Recoverable** - errors that can be logged and retried
+     - **Critical** - errors that should crash the process
+   - For functions with both recoverable and critical errors:
+     - Define recoverable errors as **typed errors** (using `errors.New` or custom error types)
+     - Document which specific errors are recoverable
+     - Document that any other error is critical
+
+**Documentation Length Rule:**
+- Documentation should NOT exceed 30% of the function's line count
+- Keep documentation succinct and focused on what developers need to know
+
+**Examples:**
+
+```go
+// Good: Clear error classification
+var (
+    ErrInvalidPort = errors.New("invalid port number")
+    ErrPortInUse   = errors.New("port already in use")
+)
+
+// StartServer starts the HTTP server on the specified port.
+//
+// The port parameter specifies which port to listen on (must be > 0).
+//
+// Returns the running server instance or an error.
+//
+// Recoverable errors:
+// - ErrInvalidPort: port validation failed, can retry with different port
+// - ErrPortInUse: port is already bound, can retry with different port
+//
+// Any other error is critical and indicates a system-level failure.
+func StartServer(port int) (*Server, error) {
+    if port <= 0 {
+        return nil, ErrInvalidPort
+    }
+    // ... implementation
+}
+
+// Good: All errors are critical
+// ParseConfig parses the configuration file and returns the config.
+//
+// The configPath parameter specifies the path to the configuration file.
+//
+// Returns an error if the file cannot be read or parsed. All errors
+// are critical and indicate the application cannot start.
+func ParseConfig(configPath string) (*Config, error) {
+    // ... implementation
+}
+
+// Good: No errors possible
+// GetPort returns the configured port number.
+func GetPort() int {
+    return 8080
+}
+```
+
+**Bad Examples:**
+
+```go
+// Bad: No error classification
+// Start starts the component.
+func (c *Component) Start() error {
+    // ... what errors are recoverable? critical?
+}
+
+// Bad: Documentation too long (exceeds 30% of function body)
+// This function does something really important and here's a long
+// explanation of every single detail about how it works internally
+// including implementation details that should be in code comments
+// and historical context about why we made certain decisions...
+func ShortFunction() error {
+    return nil
+}
+```
 
 ## Key Dependencies
 

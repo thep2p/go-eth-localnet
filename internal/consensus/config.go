@@ -2,9 +2,11 @@ package consensus
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-playground/validator/v10"
 )
 
 // Config holds configuration for the Prysm consensus client.
@@ -19,10 +21,10 @@ type Config struct {
 	// Network configuration
 
 	// ChainID identifies the Ethereum network (1337 for local development).
-	ChainID uint64
+	ChainID uint64 `validate:"required,gt=0"`
 
 	// GenesisTime is the Unix timestamp when the beacon chain genesis occurred.
-	GenesisTime time.Time
+	GenesisTime time.Time `validate:"required"`
 
 	// GenesisRoot is the hash tree root of the genesis beacon state.
 	GenesisRoot common.Hash
@@ -84,4 +86,27 @@ type Config struct {
 	// GenesisStateURL is a URL to fetch the genesis beacon state.
 	// Used for bootstrapping new clients.
 	GenesisStateURL string
+}
+
+// Validate checks that the configuration is valid for genesis state generation.
+//
+// Returns an error if required fields are missing or constraints are violated.
+// All validation errors are critical and indicate the configuration must be
+// fixed before genesis state generation can proceed.
+func (c *Config) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(c); err != nil {
+		return err
+	}
+
+	// Custom validations for genesis state generation
+	if len(c.ValidatorKeys) == 0 {
+		return fmt.Errorf("at least one validator is required")
+	}
+
+	if len(c.WithdrawalAddresses) != len(c.ValidatorKeys) {
+		return fmt.Errorf("withdrawal addresses count (%d) must match validator keys count (%d)", len(c.WithdrawalAddresses), len(c.ValidatorKeys))
+	}
+
+	return nil
 }

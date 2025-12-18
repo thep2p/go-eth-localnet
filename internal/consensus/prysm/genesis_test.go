@@ -84,6 +84,19 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	validatorKeys, err := prysm.GenerateTestValidators(1)
 	require.NoError(t, err)
 
+	// Base valid config for tests
+	baseConfig := consensus.Config{
+		DataDir:             "/tmp/test",
+		ChainID:             1337,
+		GenesisTime:         time.Now(),
+		BeaconPort:          4000,
+		P2PPort:             9000,
+		EngineEndpoint:      "http://localhost:8551",
+		JWTSecret:           []byte("secret"),
+		ValidatorKeys:       validatorKeys,
+		WithdrawalAddresses: []common.Address{withdrawalAddr},
+	}
+
 	tests := []struct {
 		name      string
 		cfg       consensus.Config
@@ -91,39 +104,38 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	}{
 		{
 			name: "missing chain id",
-			cfg: consensus.Config{
-				GenesisTime:         time.Now(),
-				ValidatorKeys:       validatorKeys,
-				WithdrawalAddresses: []common.Address{withdrawalAddr},
-			},
-			wantError: "chain id",
+			cfg: func() consensus.Config {
+				cfg := baseConfig
+				cfg.ChainID = 0
+				return cfg
+			}(),
+			wantError: "ChainID",
 		},
 		{
 			name: "missing genesis time",
-			cfg: consensus.Config{
-				ChainID:             1337,
-				ValidatorKeys:       validatorKeys,
-				WithdrawalAddresses: []common.Address{withdrawalAddr},
-			},
-			wantError: "genesis time",
+			cfg: func() consensus.Config {
+				cfg := baseConfig
+				cfg.GenesisTime = time.Time{}
+				return cfg
+			}(),
+			wantError: "GenesisTime",
 		},
 		{
 			name: "missing validators",
-			cfg: consensus.Config{
-				ChainID:             1337,
-				GenesisTime:         time.Now(),
-				WithdrawalAddresses: []common.Address{withdrawalAddr},
-			},
+			cfg: func() consensus.Config {
+				cfg := baseConfig
+				cfg.ValidatorKeys = nil
+				return cfg
+			}(),
 			wantError: "at least one validator",
 		},
 		{
 			name: "mismatched withdrawal addresses count",
-			cfg: consensus.Config{
-				ChainID:             1337,
-				GenesisTime:         time.Now(),
-				ValidatorKeys:       validatorKeys,
-				WithdrawalAddresses: []common.Address{}, // Empty slice, should error
-			},
+			cfg: func() consensus.Config {
+				cfg := baseConfig
+				cfg.WithdrawalAddresses = []common.Address{} // Empty slice, should error
+				return cfg
+			}(),
 			wantError: "withdrawal addresses count",
 		},
 	}
@@ -154,8 +166,13 @@ func TestGenerateGenesisState(t *testing.T) {
 	}
 
 	cfg := consensus.Config{
+		DataDir:             "/tmp/test",
 		ChainID:             1337,
 		GenesisTime:         time.Now(),
+		BeaconPort:          4000,
+		P2PPort:             9000,
+		EngineEndpoint:      "http://localhost:8551",
+		JWTSecret:           []byte("secret"),
 		ValidatorKeys:       validatorKeys,
 		WithdrawalAddresses: withdrawalAddrs,
 		FeeRecipient:        withdrawalAddrs[0],
@@ -202,8 +219,13 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	}
 
 	cfg := consensus.Config{
+		DataDir:             "/tmp/test",
 		ChainID:             1337,
 		GenesisTime:         time.Now(),
+		BeaconPort:          4000,
+		P2PPort:             9000,
+		EngineEndpoint:      "http://localhost:8551",
+		JWTSecret:           []byte("secret"),
 		ValidatorKeys:       validatorKeys,
 		WithdrawalAddresses: withdrawalAddrs,
 		FeeRecipient:        withdrawalAddrs[0],

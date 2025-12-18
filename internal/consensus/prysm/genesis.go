@@ -17,30 +17,14 @@ import (
 
 // GenerateGenesisState creates a beacon chain genesis state from configuration.
 //
-// GenerateGenesisState performs the following steps:
-// 1. Converts validator keys to Prysm deposits
-// 2. Creates the beacon state with configured validators
-// 3. Marshals to SSZ format for Prysm
+// Converts validator keys to Prysm deposits and generates an SSZ-encoded genesis
+// state. Each validator gets independent withdrawal credentials from cfg.WithdrawalAddresses.
 //
-// Each validator earns rewards independently and has its own withdrawal credentials.
-// The withdrawal addresses from cfg.WithdrawalAddresses are encoded into the
-// withdrawal credentials (0x01 prefix format) for each validator. The number of
-// withdrawal addresses must match the number of validator keys.
-//
-// The returned genesis state can be used to initialize a Prysm beacon node.
-// Returns an error if the configuration is invalid or genesis creation fails.
+// Returns the SSZ-encoded genesis state or an error. All errors are critical and
+// indicate genesis state generation cannot proceed.
 func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
-	if cfg.ChainID == 0 {
-		return nil, fmt.Errorf("chain id is required")
-	}
-	if cfg.GenesisTime.IsZero() {
-		return nil, fmt.Errorf("genesis time is required")
-	}
-	if len(cfg.ValidatorKeys) == 0 {
-		return nil, fmt.Errorf("at least one validator is required")
-	}
-	if len(cfg.WithdrawalAddresses) != len(cfg.ValidatorKeys) {
-		return nil, fmt.Errorf("withdrawal addresses count (%d) must match validator keys count (%d)", len(cfg.WithdrawalAddresses), len(cfg.ValidatorKeys))
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	// Parse BLS secret keys from hex
@@ -89,11 +73,10 @@ func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
 	return sszBytes, nil
 }
 
-// DeriveGenesisRoot calculates the genesis beacon state root.
+// DeriveGenesisRoot calculates the genesis beacon state root from SSZ-encoded state.
 //
-// The genesis root is the hash tree root of the beacon chain genesis state.
-// It's used as a unique identifier for the network and must match between
-// all nodes in the network.
+// Returns the hash tree root used as the network identifier. All errors are critical
+// and indicate the genesis state is invalid or corrupted.
 func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	if len(genesisState) == 0 {
 		return common.Hash{}, fmt.Errorf("genesis state is empty")
@@ -120,7 +103,9 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	return common.BytesToHash(root[:]), nil
 }
 
-// createDepositDataWithWithdrawalAddresses creates deposit data for validators with per-validator withdrawal addresses.
+// createDepositDataWithWithdrawalAddresses creates deposit data for validators with
+// per-validator withdrawal addresses. Returns deposit data items, roots, or an error.
+// All errors are critical.
 func createDepositDataWithWithdrawalAddresses(
 	secretKeys []bls.SecretKey,
 	publicKeys []bls.PublicKey,
@@ -180,14 +165,8 @@ func createDepositDataWithWithdrawalAddresses(
 	return depositDataItems, depositDataRoots, nil
 }
 
-// GenerateTestValidators creates validator keys for testing.
-//
-// This is a convenience function for local development that generates
-// the specified number of BLS validator keys deterministically as hex strings.
-// These keys can be used with consensus.Config.ValidatorKeys.
-//
-// WARNING: The generated keys are deterministic and MUST NOT be used
-// in production. They are suitable only for local testing.
+// GenerateTestValidators generates deterministic BLS validator keys for testing.
+// WARNING: Keys are NOT production-safe. All errors are critical.
 func GenerateTestValidators(count int) ([]string, error) {
 	// Use Prysm's deterministic key generation for interop compatibility
 	secretKeys, _, err := interop.DeterministicallyGenerateKeys(0, uint64(count))
