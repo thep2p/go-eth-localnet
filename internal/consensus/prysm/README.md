@@ -135,27 +135,26 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Create consensus config
+// Create consensus config with withdrawal addresses
 // For local development, genesis time should be 30 seconds in the past
 // to ensure the network starts producing blocks immediately.
+// Each validator needs a withdrawal address for rewards and stake withdrawals.
 cfg := consensus.Config{
     ChainID:       1337,
     GenesisTime:   time.Now().Add(-30 * time.Second),
     ValidatorKeys: validatorKeys,
-    FeeRecipient:  common.HexToAddress("0x1234567890123456789012345678901234567890"),
+    WithdrawalAddresses: []common.Address{
+        common.HexToAddress("0x1111111111111111111111111111111111111111"),
+        common.HexToAddress("0x2222222222222222222222222222222222222222"),
+        common.HexToAddress("0x3333333333333333333333333333333333333333"),
+        common.HexToAddress("0x4444444444444444444444444444444444444444"),
+    },
+    FeeRecipient: common.HexToAddress("0x1234567890123456789012345678901234567890"),
     // ... other config fields ...
 }
 
-// Generate withdrawal addresses - one per validator
-withdrawalAddrs := make([]common.Address, len(validatorKeys))
-for i := range withdrawalAddrs {
-    // In production, each validator would have a unique address
-    // For local dev, you can use the same address or generate unique ones
-    withdrawalAddrs[i] = common.HexToAddress("0x1234567890123456789012345678901234567890")
-}
-
 // Generate genesis state from config
-genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
+genesisState, err := prysm.GenerateGenesisState(cfg)
 if err != nil {
     log.Fatal(err)
 }

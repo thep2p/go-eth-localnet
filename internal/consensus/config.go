@@ -66,6 +66,11 @@ type Config struct {
 	// In production, keys should be managed securely via remote signers.
 	ValidatorKeys []string
 
+	// WithdrawalAddresses are ethereum execution layer addresses where each
+	// validator's rewards and withdrawn stake will be sent. Must have one
+	// address per validator key.
+	WithdrawalAddresses []common.Address
+
 	// FeeRecipient is the Ethereum address that receives transaction fees
 	// from blocks proposed by this validator.
 	FeeRecipient common.Address

@@ -85,53 +85,52 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name              string
-		cfg               consensus.Config
-		withdrawalAddrs   []common.Address
-		wantError         string
+		name      string
+		cfg       consensus.Config
+		wantError string
 	}{
 		{
 			name: "missing chain id",
 			cfg: consensus.Config{
-				GenesisTime:   time.Now(),
-				ValidatorKeys: validatorKeys,
+				GenesisTime:         time.Now(),
+				ValidatorKeys:       validatorKeys,
+				WithdrawalAddresses: []common.Address{withdrawalAddr},
 			},
-			withdrawalAddrs: []common.Address{withdrawalAddr},
-			wantError:       "chain id",
+			wantError: "chain id",
 		},
 		{
 			name: "missing genesis time",
 			cfg: consensus.Config{
-				ChainID:       1337,
-				ValidatorKeys: validatorKeys,
+				ChainID:             1337,
+				ValidatorKeys:       validatorKeys,
+				WithdrawalAddresses: []common.Address{withdrawalAddr},
 			},
-			withdrawalAddrs: []common.Address{withdrawalAddr},
-			wantError:       "genesis time",
+			wantError: "genesis time",
 		},
 		{
 			name: "missing validators",
 			cfg: consensus.Config{
-				ChainID:     1337,
-				GenesisTime: time.Now(),
+				ChainID:             1337,
+				GenesisTime:         time.Now(),
+				WithdrawalAddresses: []common.Address{withdrawalAddr},
 			},
-			withdrawalAddrs: []common.Address{withdrawalAddr},
-			wantError:       "at least one validator",
+			wantError: "at least one validator",
 		},
 		{
 			name: "mismatched withdrawal addresses count",
 			cfg: consensus.Config{
-				ChainID:       1337,
-				GenesisTime:   time.Now(),
-				ValidatorKeys: validatorKeys,
+				ChainID:             1337,
+				GenesisTime:         time.Now(),
+				ValidatorKeys:       validatorKeys,
+				WithdrawalAddresses: []common.Address{}, // Empty slice, should error
 			},
-			withdrawalAddrs: []common.Address{}, // Empty slice, should error
-			wantError:       "withdrawal addresses count",
+			wantError: "withdrawal addresses count",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state, err := prysm.GenerateGenesisState(tt.cfg, tt.withdrawalAddrs)
+			state, err := prysm.GenerateGenesisState(tt.cfg)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantError)
 			require.Nil(t, state)
@@ -155,13 +154,14 @@ func TestGenerateGenesisState(t *testing.T) {
 	}
 
 	cfg := consensus.Config{
-		ChainID:       1337,
-		GenesisTime:   time.Now(),
-		ValidatorKeys: validatorKeys,
-		FeeRecipient:  withdrawalAddrs[0],
+		ChainID:             1337,
+		GenesisTime:         time.Now(),
+		ValidatorKeys:       validatorKeys,
+		WithdrawalAddresses: withdrawalAddrs,
+		FeeRecipient:        withdrawalAddrs[0],
 	}
 
-	state, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
+	state, err := prysm.GenerateGenesisState(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotEmpty(t, state)
@@ -202,13 +202,14 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	}
 
 	cfg := consensus.Config{
-		ChainID:       1337,
-		GenesisTime:   time.Now(),
-		ValidatorKeys: validatorKeys,
-		FeeRecipient:  withdrawalAddrs[0],
+		ChainID:             1337,
+		GenesisTime:         time.Now(),
+		ValidatorKeys:       validatorKeys,
+		WithdrawalAddresses: withdrawalAddrs,
+		FeeRecipient:        withdrawalAddrs[0],
 	}
 
-	genesisState, err := prysm.GenerateGenesisState(cfg, withdrawalAddrs)
+	genesisState, err := prysm.GenerateGenesisState(cfg)
 	require.NoError(t, err)
 
 	// Test deriving root from the generated state

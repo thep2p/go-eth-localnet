@@ -22,18 +22,14 @@ import (
 // 2. Creates the beacon state with configured validators
 // 3. Marshals to SSZ format for Prysm
 //
-// The withdrawalAddresses parameter specifies the ethereum execution layer addresses
-// where each validator's rewards and withdrawn stake will be sent. Each validator
-// earns rewards independently and has its own withdrawal credentials. The addresses
-// are encoded into the withdrawal credentials (0x01 prefix format) for each validator.
-// The number of withdrawal addresses must match the number of validator keys.
+// Each validator earns rewards independently and has its own withdrawal credentials.
+// The withdrawal addresses from cfg.WithdrawalAddresses are encoded into the
+// withdrawal credentials (0x01 prefix format) for each validator. The number of
+// withdrawal addresses must match the number of validator keys.
 //
 // The returned genesis state can be used to initialize a Prysm beacon node.
 // Returns an error if the configuration is invalid or genesis creation fails.
-func GenerateGenesisState(
-	cfg consensus.Config,
-	withdrawalAddresses []common.Address,
-) ([]byte, error) {
+func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
 	if cfg.ChainID == 0 {
 		return nil, fmt.Errorf("chain id is required")
 	}
@@ -43,8 +39,8 @@ func GenerateGenesisState(
 	if len(cfg.ValidatorKeys) == 0 {
 		return nil, fmt.Errorf("at least one validator is required")
 	}
-	if len(withdrawalAddresses) != len(cfg.ValidatorKeys) {
-		return nil, fmt.Errorf("withdrawal addresses count (%d) must match validator keys count (%d)", len(withdrawalAddresses), len(cfg.ValidatorKeys))
+	if len(cfg.WithdrawalAddresses) != len(cfg.ValidatorKeys) {
+		return nil, fmt.Errorf("withdrawal addresses count (%d) must match validator keys count (%d)", len(cfg.WithdrawalAddresses), len(cfg.ValidatorKeys))
 	}
 
 	// Parse BLS secret keys from hex
@@ -66,7 +62,7 @@ func GenerateGenesisState(
 	}
 
 	// Create deposit data with per-validator withdrawal addresses
-	depositDataItems, depositDataRoots, err := createDepositDataWithWithdrawalAddresses(secretKeys, publicKeys, withdrawalAddresses)
+	depositDataItems, depositDataRoots, err := createDepositDataWithWithdrawalAddresses(secretKeys, publicKeys, cfg.WithdrawalAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("create deposit data: %w", err)
 	}
