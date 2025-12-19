@@ -5,16 +5,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
 )
 
-// TestGenerateTestValidators verifies validator generation for testing.
-func TestGenerateTestValidators(t *testing.T) {
+// TestGenerateValidatorKeys verifies validator key generation for testing.
+func TestGenerateValidatorKeys(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -33,21 +31,12 @@ func TestGenerateTestValidators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keys, err := prysm.GenerateTestValidators(tt.count)
+			keys, err := prysm.GenerateValidatorKeys(tt.count)
 			require.NoError(t, err)
 			require.Len(t, keys, tt.count)
 
 			// Verify all keys are valid BLS12-381 keys
-			for i, keyHex := range keys {
-				assert.NotEmpty(t, keyHex, "validator %d should have private key", i)
-
-				// Decode and parse as BLS key
-				keyBytes, err := hexutil.Decode(keyHex)
-				require.NoError(t, err, "validator %d key should be valid hex", i)
-
-				secretKey, err := bls.SecretKeyFromBytes(keyBytes)
-				require.NoError(t, err, "validator %d key should be valid bls key", i)
-
+			for i, secretKey := range keys {
 				// Verify we can derive public key
 				publicKey := secretKey.PublicKey()
 				require.NotNil(t, publicKey, "validator %d should have public key", i)
@@ -55,25 +44,28 @@ func TestGenerateTestValidators(t *testing.T) {
 
 			// Verify keys are unique
 			if tt.count > 1 {
-				assert.NotEqual(t, keys[0], keys[1], "validators should have unique keys")
+				assert.NotEqual(t, keys[0].Marshal(), keys[1].Marshal(), "validators should have unique keys")
 			}
 		})
 	}
 }
 
-// TestGenerateTestValidatorsDeterminism verifies keys are deterministic.
-func TestGenerateTestValidatorsDeterminism(t *testing.T) {
+// TestGenerateValidatorKeysDeterminism verifies keys are deterministic.
+func TestGenerateValidatorKeysDeterminism(t *testing.T) {
 	t.Parallel()
 
 	// Generate validators twice
-	keys1, err := prysm.GenerateTestValidators(10)
+	keys1, err := prysm.GenerateValidatorKeys(10)
 	require.NoError(t, err)
 
-	keys2, err := prysm.GenerateTestValidators(10)
+	keys2, err := prysm.GenerateValidatorKeys(10)
 	require.NoError(t, err)
 
-	// Verify same keys are generated
-	require.Equal(t, keys1, keys2, "same seed should generate same keys")
+	// Verify same keys are generated (compare marshaled bytes)
+	require.Len(t, keys1, len(keys2))
+	for i := range keys1 {
+		require.Equal(t, keys1[i].Marshal(), keys2[i].Marshal(), "same seed should generate same keys")
+	}
 }
 
 // TestGenerateGenesisStateValidation verifies genesis state validation.
@@ -81,7 +73,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 	t.Parallel()
 
 	withdrawalAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	validatorKeys, err := prysm.GenerateTestValidators(1)
+	validatorKeys, err := prysm.GenerateValidatorKeys(1)
 	require.NoError(t, err)
 
 	// Base valid config for tests
@@ -154,7 +146,7 @@ func TestGenerateGenesisStateValidation(t *testing.T) {
 func TestGenerateGenesisState(t *testing.T) {
 	t.Parallel()
 
-	validatorKeys, err := prysm.GenerateTestValidators(4)
+	validatorKeys, err := prysm.GenerateValidatorKeys(4)
 	require.NoError(t, err)
 
 	// Create unique withdrawal address for each validator
@@ -209,7 +201,7 @@ func TestDeriveGenesisRoot(t *testing.T) {
 	t.Parallel()
 
 	// Generate a real genesis state for testing
-	validatorKeys, err := prysm.GenerateTestValidators(2)
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
 	require.NoError(t, err)
 
 	// Create unique withdrawal address for each validator

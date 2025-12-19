@@ -210,10 +210,8 @@ func TestClientWithValidators(t *testing.T) {
 	tmp := unittest.NewTempDir(t)
 	t.Cleanup(tmp.Remove)
 
-	validatorKeys := []string{
-		"test-key-1",
-		"test-key-2",
-	}
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
+	require.NoError(t, err)
 
 	cfg := consensus.Config{
 		DataDir:        filepath.Join(tmp.Path(), "prysm"),

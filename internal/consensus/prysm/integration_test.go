@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
@@ -262,15 +263,10 @@ func startGethNodesWithEngineAPI(t *testing.T, baseDir string, count int) *node.
 }
 
 // generateTestValidatorKeys generates test validator keys for local development.
-func generateTestValidatorKeys(t *testing.T, count int) []string {
+func generateTestValidatorKeys(t *testing.T, count int) []bls.SecretKey {
 	t.Helper()
 
-	keys := make([]string, count)
-	for i := 0; i < count; i++ {
-		// For now, just use placeholder keys
-		// TODO(#47): Generate actual BLS12-381 keys once genesis.go is implemented
-		// https://github.com/thep2p/go-eth-localnet/issues/47
-		keys[i] = fmt.Sprintf("test-validator-key-%d", i)
-	}
+	keys, err := prysm.GenerateValidatorKeys(count)
+	require.NoError(t, err)
 	return keys
 }

@@ -210,10 +210,11 @@ The codebase prioritizes directness and simplicity over premature abstraction. F
 - Example of CORRECT (use existing types):
   ```go
   // Good: Use consensus.Config directly, add fields to existing type if needed
+  validatorKeys, _ := prysm.GenerateValidatorKeys(2)
   cfg := consensus.Config{
       ChainID:       1337,
       GenesisTime:   time.Now().Add(-30 * time.Second),
-      ValidatorKeys: []string{"key1", "key2"},
+      ValidatorKeys: validatorKeys,
   }
   ```
 

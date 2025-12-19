@@ -140,7 +140,8 @@ func TestLauncherWithOptions(t *testing.T) {
 		JWTSecret:      []byte("test-jwt-secret-32-bytes-long!!"),
 	}
 
-	validatorKeys := []string{"test-key-1", "test-key-2"}
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
+	require.NoError(t, err)
 	bootnodes := []string{"enr://test-bootnode"}
 	staticPeers := []string{"/ip4/127.0.0.1/tcp/9001"}
 
@@ -168,10 +169,8 @@ func TestLauncherValidatorKeysOption(t *testing.T) {
 	tmp := unittest.NewTempDir(t)
 	t.Cleanup(tmp.Remove)
 
-	validatorKeys := []string{
-		"0x1234567890abcdef",
-		"0xfedcba0987654321",
-	}
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
+	require.NoError(t, err)
 
 	cfg := consensus.Config{
 		DataDir:        filepath.Join(tmp.Path(), "prysm"),
@@ -327,7 +326,8 @@ func TestLauncherMultipleOptions(t *testing.T) {
 	tmp := unittest.NewTempDir(t)
 	t.Cleanup(tmp.Remove)
 
-	validatorKeys := []string{"test-key-1"}
+	validatorKeys, err := prysm.GenerateValidatorKeys(1)
+	require.NoError(t, err)
 	bootnodes := []string{"enr://test-bootnode"}
 	staticPeers := []string{"/ip4/127.0.0.1/tcp/9001"}
 	checkpointURL := "https://checkpoint.example.com"

@@ -22,6 +22,11 @@ Basic usage involves creating a launcher, configuring a client, and starting it:
 logger := zerolog.New(os.Stdout)
 launcher := prysm.NewLauncher(logger)
 
+validatorKeys, err := prysm.GenerateValidatorKeys(1)
+if err != nil {
+    log.Fatal(err)
+}
+
 cfg := consensus.Config{
     DataDir:        "/tmp/prysm",
     ChainID:        1337,
@@ -31,7 +36,7 @@ cfg := consensus.Config{
     RPCPort:        5000,
     EngineEndpoint: "http://127.0.0.1:8551",
     JWTSecret:      jwtSecret,
-    ValidatorKeys:  []string{"validator-key"},
+    ValidatorKeys:  validatorKeys,
 }
 
 client, err := launcher.Launch(cfg)
@@ -130,7 +135,7 @@ For local development, genesis states can be generated programmatically using co
 
 ```go
 // Generate test validator keys
-validatorKeys, err := prysm.GenerateTestValidators(4)
+validatorKeys, err := prysm.GenerateValidatorKeys(4)
 if err != nil {
     log.Fatal(err)
 }

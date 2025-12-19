@@ -3,6 +3,7 @@ package prysm
 import (
 	"fmt"
 
+	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/rs/zerolog"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 )
@@ -83,10 +84,10 @@ type LaunchOption func(*consensus.Config)
 
 // WithValidatorKeys configures the client with validator keys for block production.
 //
-// Each key should be a hex-encoded BLS12-381 private key. In production,
-// keys should be managed securely via remote signers; this option is
-// primarily for testing and local development.
-func WithValidatorKeys(keys []string) LaunchOption {
+// Keys are BLS12-381 secret keys. In production, keys should be managed
+// securely via remote signers; this option is primarily for testing and
+// local development.
+func WithValidatorKeys(keys []bls.SecretKey) LaunchOption {
 	return func(cfg *consensus.Config) {
 		cfg.ValidatorKeys = keys
 	}

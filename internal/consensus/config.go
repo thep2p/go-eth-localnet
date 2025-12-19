@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-playground/validator/v10"
+	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 )
 
 // Config holds configuration for the Prysm consensus client.
@@ -66,7 +67,7 @@ type Config struct {
 
 	// ValidatorKeys are validator private keys for block production (testing only).
 	// In production, keys should be managed securely via remote signers.
-	ValidatorKeys []string
+	ValidatorKeys []bls.SecretKey
 
 	// WithdrawalAddresses are ethereum execution layer addresses where each
 	// validator's rewards and withdrawn stake will be sent. Must have one

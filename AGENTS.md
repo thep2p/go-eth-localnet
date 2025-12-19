@@ -193,7 +193,7 @@ type ExecutionHeader struct {
 type Config struct {
     ChainID       uint64
     GenesisTime   time.Time
-    ValidatorKeys []string  // Simple slice, no wrapper needed
+    ValidatorKeys []bls.SecretKey  // Use Prysm's BLS type directly
     // ...
 }
 
