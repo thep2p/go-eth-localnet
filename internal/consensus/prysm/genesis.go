@@ -19,8 +19,16 @@ import (
 // Converts validator keys to Prysm deposits and generates an SSZ-encoded genesis
 // state. Each validator gets independent withdrawal credentials from cfg.WithdrawalAddresses.
 //
-// Returns the SSZ-encoded genesis state or an error. All errors are critical and
-// indicate genesis state generation cannot proceed.
+// Args:
+//   - cfg: consensus configuration containing validator keys, withdrawal addresses,
+//     genesis time, and network parameters
+//
+// Returns:
+//   - SSZ-encoded genesis state (full beacon state serialized to binary format,
+//     containing all validators, balances, committees, historical roots, etc.)
+//   - Error if validation fails or genesis state generation cannot proceed
+//
+// All errors are CRITICAL and indicate genesis state generation cannot proceed.
 func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
@@ -48,7 +56,10 @@ func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
 		return nil, fmt.Errorf("initialize state: %w", err)
 	}
 
-	// Marshal state to SSZ format
+	// Marshal state to SSZ format (binary serialization)
+	// Returns the entire beacon state as bytes, containing all validators, balances,
+	// committees, historical roots, etc. This is the full state data (could be megabytes),
+	// not the 32-byte beacon state root (which would be computed via HashTreeRoot).
 	sszBytes, err := st.MarshalSSZ()
 	if err != nil {
 		return nil, fmt.Errorf("marshal state to ssz: %w", err)
@@ -59,8 +70,14 @@ func GenerateGenesisState(cfg consensus.Config) ([]byte, error) {
 
 // DeriveGenesisRoot calculates the genesis beacon state root from SSZ-encoded state.
 //
-// Returns the hash tree root used as the network identifier. All errors are critical
-// and indicate the genesis state is invalid or corrupted.
+// Args:
+//   - genesisState: SSZ-encoded (entire) genesis state bytes (output from GenerateGenesisState)
+//
+// Returns:
+//   - 32-byte hash tree root of the beacon state (used as network identifier)
+//   - Error if the genesis state is invalid or corrupted
+//
+// All errors are CRITICAL and indicate the genesis state is invalid or corrupted.
 func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 	if len(genesisState) == 0 {
 		return common.Hash{}, fmt.Errorf("genesis state is empty")
@@ -101,8 +118,14 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 // data structure (which itself is a tree), which becomes a leaf in the beacon state's deposit tree (stored in
 // the eth1_data field).
 //
-// Returns deposit data items and their hash tree roots. All errors are critical
-// and indicate cryptographic operations or signing failed.
+// Args:
+//   - secretKeys: BLS secret keys for each validator
+//
+// - withdrawalAddresses: Ethereum addresses for each validator's withdrawals
+// Returns:
+//   - depositDataItems: Prysm deposit data structures for each validator
+//   - depositDataRoots: Hash tree roots of each deposit data (leaves in deposit tree)
+//   - error: Any error encountered during processing, all errors are CRITICAL.
 func createDepositDataWithWithdrawalAddresses(
 	secretKeys []bls.SecretKey,
 	withdrawalAddresses []common.Address,
@@ -111,16 +134,13 @@ func createDepositDataWithWithdrawalAddresses(
 	depositDataRoots := make([][]byte, len(secretKeys))
 
 	for i, secretKey := range secretKeys {
-		// Derive public key from secret key
-		publicKey := secretKey.PublicKey()
-
 		// Create withdrawal credentials (32 bytes for SSZ merkleization)
 		// Beacon chain uses 32-byte fields for all hash-sized data to maintain
 		// uniform merkle tree chunks. Withdrawal credentials structure:
 		//
 		//   [0x01][11 zero bytes][20-byte Ethereum address]
 		//    ^^^^^               ^^^^^^^^^^^^^^^^^^^^^^^
-		//    type                  your account address
+		//    type                  withdrawal address
 		//
 		// Type 0x01 = direct withdrawal to Ethereum address (modern standard)
 		// Type 0x00 = BLS withdrawal credentials (legacy, pre-Shanghai)
@@ -132,7 +152,7 @@ func createDepositDataWithWithdrawalAddresses(
 		// Create deposit message (unsigned data to be staked)
 		// MaxEffectiveBalance = 32 ETH, the standard validator stake
 		depositMsg := &ethpb.DepositMessage{
-			PublicKey:             publicKey.Marshal(),
+			PublicKey:             secretKey.PublicKey().Marshal(),
 			WithdrawalCredentials: withdrawalCreds,
 			Amount:                params.BeaconConfig().MaxEffectiveBalance, // 32 ETH
 		}
