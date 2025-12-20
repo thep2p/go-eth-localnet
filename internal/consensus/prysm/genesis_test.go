@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
@@ -42,9 +41,14 @@ func TestGenerateValidatorKeys(t *testing.T) {
 				require.NotNil(t, publicKey, "validator %d should have public key", i)
 			}
 
-			// Verify keys are unique
+			// Verify all keys are unique
 			if tt.count > 1 {
-				assert.NotEqual(t, keys[0].Marshal(), keys[1].Marshal(), "validators should have unique keys")
+				seen := make(map[string]bool)
+				for i, secretKey := range keys {
+					keyBytes := string(secretKey.Marshal())
+					require.False(t, seen[keyBytes], "validator %d has duplicate key", i)
+					seen[keyBytes] = true
+				}
 			}
 		})
 	}
