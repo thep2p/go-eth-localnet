@@ -249,7 +249,7 @@ func GenerateTestValidators(count int) ([]string, error) {
 **Examples:**
 - Use `skipgraphtest.RequireAllReady` instead of manual select statements
 - Use `common.Hash` from go-ethereum instead of `[32]byte`
-- Use `testutils.NewPort()` instead of hardcoding port numbers
+- Use `unittest.NewPort()` instead of hardcoding port numbers
 
 ### When to Create Abstractions
 
