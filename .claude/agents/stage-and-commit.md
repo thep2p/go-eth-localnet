@@ -36,11 +36,15 @@ Examples from this project:
 - `Remove deprecated launcher options`
 
 **IMPORTANT: Attribution Policy**
-- NEVER add Claude Code attribution (e.g., "🤖 Generated with Claude Code")
-- NEVER add Co-Authored-By lines with Claude as a co-author
-- NEVER add any AI-related metadata to commit messages
-- Commit messages should be simple, clean, and follow only the format above
-- The same rules apply to PR descriptions - no Claude attribution or co-authorship
+- ALWAYS add Claude Code attribution footer to commit messages:
+  ```
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+  ```
+- The attribution should be separated from the commit message body by a blank line
+- PR descriptions should also include the attribution at the end
+- This ensures transparency about AI-assisted contributions
 
 ## Workflow
 
