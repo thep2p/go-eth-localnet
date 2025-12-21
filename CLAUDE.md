@@ -9,8 +9,13 @@ This is a Go-native tool for spinning up and orchestrating local Ethereum networ
 ## Essential Commands
 
 ### Build and Development
+
+**Go Version Requirements:**
+- Minimum: Go 1.23.10+ for base functionality
+- Consensus layer features: Go 1.24.0+ (required by Prysm v5.3.3)
+
 ```bash
-make build          # Build the project (validates Go version 1.23.10+)
+make build          # Build the project (validates Go version)
 make test           # Run all tests (requires solc installed)
 make lint           # Run golangci-lint v1.64.5
 make lint-fix       # Run linting with auto-fixes
@@ -431,7 +436,7 @@ func (c *Client) GetSyncStatus() (SyncStatus, error) {
 **IMPORTANT: Follow all coding best practices listed in AGENTS.md**
 
 1. **Before making changes:**
-   - Check Go version meets minimum 1.23.10 requirement
+   - Check Go version meets minimum requirement (1.23.10+ for base, 1.24.0+ for consensus layer)
    - Ensure `solc` is installed (version 0.8.30+)
    - Run `make tidy` to ensure dependencies are clean
 
@@ -540,8 +545,12 @@ func ShortFunction() error {
 ## Key Dependencies
 
 - `github.com/ethereum/go-ethereum v1.15.11` - Core Ethereum implementation
+- `github.com/prysmaticlabs/prysm/v5 v5.3.3` - Consensus layer (beacon chain) implementation
+- `github.com/go-playground/validator/v10 v10.25.0` - Configuration validation
 - `github.com/rs/zerolog v1.34.0` - Structured logging throughout
 - `github.com/stretchr/testify v1.10.0` - Test assertions and requirements
+
+**Note:** Prysm v5.3.3 requires Go 1.24.0+ as a minimum version.
 
 ## Current Limitations
 
