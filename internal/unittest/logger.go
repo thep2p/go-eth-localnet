@@ -1,4 +1,4 @@
-// Package testutils provides testing utilities and helper functions for Ethereum node testing.
+// Package unittest provides testing utilities and helper functions for Ethereum node testing.
 // It includes functionality for managing test node instances, configuring static peer connections,
 // and setting up test network environments. This package is intended for testing purposes only
 // and should not be used in production environments.
