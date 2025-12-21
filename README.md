@@ -61,7 +61,7 @@ cd go-eth-localnet
 ```go
 logger := zerolog.New(os.Stdout).Level(zerolog.InfoLevel)
 launcher := node.NewLauncher(logger)
-manager := node.NewNodeManager(logger, launcher, "./datadir", testutils.NewPort)
+manager := node.NewNodeManager(logger, launcher, "./datadir", unittest.NewPort)
 ctx := context.Background()
 if err := manager.Start(ctx); err != nil {
     log.Fatal(err)
