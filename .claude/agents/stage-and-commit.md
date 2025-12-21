@@ -36,11 +36,15 @@ Examples from this project:
 - `Remove deprecated launcher options`
 
 **IMPORTANT: Attribution Policy**
-- NEVER add Claude Code attribution (e.g., "🤖 Generated with Claude Code")
-- NEVER add Co-Authored-By lines with Claude as a co-author
-- NEVER add any AI-related metadata to commit messages
-- Commit messages should be simple, clean, and follow only the format above
-- The same rules apply to PR descriptions - no Claude attribution or co-authorship
+- ALWAYS add Claude Code attribution footer to commit messages:
+  ```
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+  ```
+- The attribution should be separated from the commit message body by a blank line
+- PR descriptions should also include the attribution at the end
+- This ensures transparency about AI-assisted contributions
 
 ## Workflow
 
@@ -54,8 +58,8 @@ Examples from this project:
    - Missing documentation updates
    - Incomplete refactoring (files not properly updated)
 4. **Stage all changes** using `git add .` (or specific files if only partial commit is appropriate)
-5. **Create commit message** following the project's format (NO Claude attribution, NO Co-Authored-By lines)
-6. **Commit changes** using `git commit -m "Verb + clear description"` (simple message only, no additional metadata)
+5. **Create commit message** following the project's format with Claude Code attribution
+6. **Commit changes** using `git commit` with proper attribution footer
 7. **Confirm success** and provide a summary of what was committed
 
 ## Component Guidelines
@@ -100,12 +104,10 @@ Before committing, verify:
 ## Pull Request Creation
 
 If you are asked to create a pull request:
-- Use `gh pr create` with simple, clean title and body
-- NEVER include Claude Code attribution in PR title or body
-- NEVER add "🤖 Generated with Claude Code" footer
-- NEVER add "Co-Authored-By: Claude" lines
+- Use `gh pr create` with clear title and body
+- Include Claude Code attribution footer in PR body
 - Focus on what changed, why it matters, and how to test
-- Keep PR descriptions professional and attribution-free
+- Keep PR descriptions professional and informative
 
 ## Output Format
 

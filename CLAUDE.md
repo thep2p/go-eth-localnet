@@ -68,7 +68,7 @@ The codebase follows a single-node development mode architecture with these key 
 - When in doubt, use the upstream Ethereum types directly
 
 **Port Management Pattern:**
-- Test utilities allocate unique ports using `testutils.NewPort()` to prevent conflicts
+- Test utilities allocate unique ports using `unittest.NewPort()` to prevent conflicts
 - Port allocation uses TCP listeners to find available ports
 - Global tracking prevents race conditions in parallel tests
 
@@ -443,7 +443,7 @@ func (c *Client) GetSyncStatus() (SyncStatus, error) {
 3. **When adding new features:**
    - Follow the LaunchOption pattern for configuration
    - Add corresponding tests with proper cleanup
-   - Use testutils for port and directory management
+   - Use unittest for port and directory management
 
 4. **Before committing:**
    - Run `make lint` to ensure code quality
