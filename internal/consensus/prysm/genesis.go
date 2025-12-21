@@ -121,6 +121,7 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 // Args:
 //   - secretKeys: BLS secret keys for each validator
 //   - withdrawalAddresses: Ethereum addresses for each validator's withdrawals
+//
 // Returns:
 //   - depositDataItems: Prysm deposit data structures for each validator
 //   - depositDataRoots: Hash tree roots of each deposit data (leaves in deposit tree)
