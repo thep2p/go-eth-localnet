@@ -114,14 +114,14 @@ func DeriveGenesisRoot(genesisState []byte) (common.Hash, error) {
 // rewards and stake are sent when the validator exits or receives withdrawals.
 //
 // The beacon state maintains a deposit merkle tree where each validator deposit is
-// one leaf. During genesis, this function computes the hash tree root of each deposit
-// data structure (which itself is a tree), which becomes a leaf in the beacon state's deposit tree (stored in
-// the eth1_data field).
+// one leaf. During genesis, this function computes the hash tree root of each
+// deposit data structure (which itself is a tree), which becomes a leaf in the
+// beacon state's deposit tree (stored in the eth1_data field).
 //
 // Args:
 //   - secretKeys: BLS secret keys for each validator
+//   - withdrawalAddresses: Ethereum addresses for each validator's withdrawals
 //
-// - withdrawalAddresses: Ethereum addresses for each validator's withdrawals
 // Returns:
 //   - depositDataItems: Prysm deposit data structures for each validator
 //   - depositDataRoots: Hash tree roots of each deposit data (leaves in deposit tree)

@@ -69,7 +69,7 @@ type Config struct {
 	// In production, keys should be managed securely via remote signers.
 	ValidatorKeys []bls.SecretKey
 
-	// WithdrawalAddresses are ethereum execution layer addresses where each
+	// WithdrawalAddresses are Ethereum execution layer addresses where each
 	// validator's rewards and withdrawn stake will be sent. Must have one
 	// address per validator key.
 	WithdrawalAddresses []common.Address
