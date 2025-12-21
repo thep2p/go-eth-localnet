@@ -193,6 +193,7 @@ func TestDeriveGenesisRootValidation(t *testing.T) {
 	root, err = prysm.DeriveGenesisRoot([]byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
+	require.Zero(t, root, "root should be zero hash on error")
 }
 
 // TestDeriveGenesisRootDeterminism verifies genesis root derivation is deterministic.
