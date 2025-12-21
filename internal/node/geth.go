@@ -157,6 +157,6 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 	l.logger.Info().Str("enode", stack.Server().NodeInfo().Enode).Str(
 		"id",
 		cfg.ID.String(),
-	).Msg("Node started")
+	).Msg("node started")
 	return stack, nil
 }

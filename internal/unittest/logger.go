@@ -2,7 +2,7 @@
 // It includes functionality for managing test node instances, configuring static peer connections,
 // and setting up test network environments. This package is intended for testing purposes only
 // and should not be used in production environments.
-package testutils
+package unittest
 
 import (
 	"github.com/rs/zerolog"

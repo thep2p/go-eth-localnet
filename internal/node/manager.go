@@ -87,7 +87,7 @@ func (m *Manager) Start(ctx context.Context, nodeCount int, opts ...LaunchOption
 		}
 	}
 
-	m.logger.Info().Int("node_count", nodeCount).Msg("All nodes started successfully")
+	m.logger.Info().Int("node_count", nodeCount).Msg("all nodes started successfully")
 	return nil
 }
 
@@ -168,7 +168,7 @@ func (m *Manager) startSingleNode(ctx context.Context, mine bool, staticNodes []
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	m.logger.Info().Int("node_index", nodeIndex).Str("enode", n.Server().NodeInfo().Enode).Msg("Node started")
+	m.logger.Info().Int("node_index", nodeIndex).Str("enode", n.Server().NodeInfo().Enode).Msg("node started")
 	return nil
 }
 
@@ -261,7 +261,7 @@ func (m *Manager) EnableEngineAPI() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.nodes) > 0 {
-		return fmt.Errorf("Engine API must be enabled before starting nodes")
+		return fmt.Errorf("engine api must be enabled before starting nodes")
 	}
 	m.enableEngineAPI = true
 	return nil
@@ -293,7 +293,7 @@ func (m *Manager) GetJWTSecret(index int) ([]byte, error) {
 	m.mu.RUnlock()
 
 	if jwtPath == "" {
-		return nil, fmt.Errorf("engine api: JWT not configured for node %d", index)
+		return nil, fmt.Errorf("engine api: jwt not configured for node %d", index)
 	}
 
 	return os.ReadFile(jwtPath)

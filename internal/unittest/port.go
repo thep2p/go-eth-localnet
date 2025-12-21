@@ -1,4 +1,4 @@
-package testutils
+package unittest
 
 import (
 	"github.com/stretchr/testify/require"

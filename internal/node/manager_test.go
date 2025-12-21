@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/node"
-	"github.com/thep2p/go-eth-localnet/internal/testutils"
+	"github.com/thep2p/go-eth-localnet/internal/unittest"
 )
 
 // startNodes initializes and starts the specified number of Geth nodes for testing.
@@ -30,11 +30,11 @@ func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 ) {
 	t.Helper()
 
-	tmp := testutils.NewTempDir(t)
-	launcher := node.NewLauncher(testutils.Logger(t))
+	tmp := unittest.NewTempDir(t)
+	launcher := node.NewLauncher(unittest.Logger(t))
 	manager := node.NewNodeManager(
-		testutils.Logger(t), launcher, tmp.Path(), func() int {
-			return testutils.NewPort(t)
+		unittest.Logger(t), launcher, tmp.Path(), func() int {
+			return unittest.NewPort(t)
 		},
 	)
 
@@ -43,7 +43,7 @@ func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	t.Cleanup(
 		func() {
 			// ensure the node is stopped and cleaned up within a timeout
-			testutils.RequireCallMustReturnWithinTimeout(
+			unittest.RequireCallMustReturnWithinTimeout(
 				t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
 			)
 		},
@@ -53,7 +53,7 @@ func startNodes(t *testing.T, nodeCount int, opts ...node.LaunchOption) (
 	gethNode := manager.GethNode()
 	require.NotNil(t, gethNode)
 
-	testutils.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
+	unittest.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
 
 	return ctx, cancel, manager
 }
@@ -121,7 +121,7 @@ func TestBlockProduction(t *testing.T) {
 				return false
 			}
 
-			num := testutils.HexToBigInt(t, hexNum)
+			num := unittest.HexToBigInt(t, hexNum)
 			// Block number should be at least 3 to ensure the node is producing blocks (at least 2 blocks + genesis).
 			return num.Uint64() >= 3
 		}, 3*node.OperationTimeout, 500*time.Millisecond, "node failed to produce blocks",
@@ -157,14 +157,14 @@ func TestBlockProductionMonitoring(t *testing.T) {
 
 	var hex1 string
 	require.NoError(t, client.CallContext(ctx, &hex1, model.EthBlockNumber))
-	n1 := testutils.HexToBigInt(t, hex1)
+	n1 := unittest.HexToBigInt(t, hex1)
 
 	// Eventually the block number should increase, indicating that the node is producing blocks.
 	require.Eventually(
 		t, func() bool {
 			var hex2 string
 			require.NoError(t, client.CallContext(ctx, &hex2, model.EthBlockNumber))
-			n2 := testutils.HexToBigInt(t, hex2)
+			n2 := unittest.HexToBigInt(t, hex2)
 			return n2.Uint64() > n1.Uint64()
 		}, node.OperationTimeout, 500*time.Millisecond, "block number did not increase",
 	)
@@ -226,7 +226,7 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 		tdStr = "0x0"
 	}
 	// Convert the total difficulty string to a big.Int for validation.
-	td := testutils.HexToBigInt(t, tdStr)
+	td := unittest.HexToBigInt(t, tdStr)
 	require.Zero(t, td.Int64())
 
 	// Post-merge, mixHash represents commitment to the randomness in block proposal.
@@ -280,10 +280,10 @@ func TestPostMergeBlockStructureValidation(t *testing.T) {
 func TestSimpleETHTransfer(t *testing.T) {
 	// Creates two accounts with 1 ETH each, sends a transaction from one to the other,
 	// Accounts A and B.
-	aKey := testutils.PrivateKeyFixture(t)
+	aKey := unittest.PrivateKeyFixture(t)
 	aAddr := crypto.PubkeyToAddress(aKey.PublicKey)
 
-	bKey := testutils.PrivateKeyFixture(t)
+	bKey := unittest.PrivateKeyFixture(t)
 	bAddr := crypto.PubkeyToAddress(bKey.PublicKey)
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
@@ -295,8 +295,8 @@ func TestSimpleETHTransfer(t *testing.T) {
 	require.NoError(t, err)
 	defer client.Close()
 
-	balA := testutils.GetBalance(t, ctx, client, aAddr)
-	balB := testutils.GetBalance(t, ctx, client, bAddr)
+	balA := unittest.GetBalance(t, ctx, client, aAddr)
+	balB := unittest.GetBalance(t, ctx, client, bAddr)
 	require.Equal(t, oneEth, balA)
 	require.Zero(t, balB.Int64())
 
@@ -311,7 +311,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 			model.EthBlockLatest,
 		),
 	)
-	nonce := testutils.HexToBigInt(t, nonceHex)
+	nonce := unittest.HexToBigInt(t, nonceHex)
 
 	// Prepare a transaction to send 0.1 ETH from account A to account B.
 	txValue := new(big.Int).Div(oneEth, big.NewInt(10))
@@ -367,14 +367,14 @@ func TestSimpleETHTransfer(t *testing.T) {
 
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
-	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
+	gasUsed := unittest.HexToBigInt(t, gasUsedHex)
 	// 0 <= gasUsed <= 21000
 	require.Less(t, uint64(0), gasUsed.Uint64())
 	require.LessOrEqual(t, gasUsed.Uint64(), gasLimit)
 
 	effGasPriceHex, ok := receipt[model.ReceiptEffectiveGasPrice].(string)
 	require.True(t, ok)
-	effGasPrice := testutils.HexToBigInt(t, effGasPriceHex)
+	effGasPrice := unittest.HexToBigInt(t, effGasPriceHex)
 
 	// Balance of account A should decrease by the value sent plus the gas used times the effective gas price.
 	expectedA := new(big.Int).Sub(
@@ -383,8 +383,8 @@ func TestSimpleETHTransfer(t *testing.T) {
 	)
 	// Balance of account B should increase by the value sent.
 	expectedB := new(big.Int).Add(balB, txValue)
-	require.Equal(t, expectedA, testutils.GetBalance(t, ctx, client, aAddr))
-	require.Equal(t, expectedB, testutils.GetBalance(t, ctx, client, bAddr))
+	require.Equal(t, expectedA, unittest.GetBalance(t, ctx, client, aAddr))
+	require.Equal(t, expectedB, unittest.GetBalance(t, ctx, client, bAddr))
 }
 
 // TestRevertingTransaction verifies that failed transactions are handled correctly by the network.
@@ -406,7 +406,7 @@ func TestSimpleETHTransfer(t *testing.T) {
 // This ensures the network remains economically secure even when processing
 // invalid operations, and that applications can detect and handle failures.
 func TestRevertingTransaction(t *testing.T) {
-	key := testutils.PrivateKeyFixture(t)
+	key := unittest.PrivateKeyFixture(t)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
@@ -429,7 +429,7 @@ func TestRevertingTransaction(t *testing.T) {
 			model.EthBlockLatest,
 		),
 	)
-	nonce := testutils.HexToBigInt(t, nonceHex)
+	nonce := unittest.HexToBigInt(t, nonceHex)
 
 	gasLimit := uint64(100000)
 	gasTipCap := big.NewInt(params.GWei)
@@ -488,7 +488,7 @@ func TestRevertingTransaction(t *testing.T) {
 
 	gasUsedHex, ok := receipt[model.ReceiptGasUsed].(string)
 	require.True(t, ok)
-	gasUsed := testutils.HexToBigInt(t, gasUsedHex)
+	gasUsed := unittest.HexToBigInt(t, gasUsedHex)
 	require.NotZero(t, gasUsed.Uint64())
 }
 
@@ -519,7 +519,7 @@ func TestRevertingTransaction(t *testing.T) {
 // If this test fails, the platform cannot support any decentralized applications,
 // reducing the blockchain to just a simple payment network.
 func TestContractDeploymentAndInteraction(t *testing.T) {
-	key := testutils.PrivateKeyFixture(t)
+	key := unittest.PrivateKeyFixture(t)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	oneEth := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether))
@@ -542,7 +542,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			model.EthBlockLatest,
 		),
 	)
-	nonce := testutils.HexToBigInt(t, nonceHex)
+	nonce := unittest.HexToBigInt(t, nonceHex)
 
 	// Set the gas limit, tip cap, and fee cap for the transaction.
 	// We set a gas limit of 1,000,000 which is sufficient for contract deployment.
@@ -643,7 +643,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			}, model.EthBlockLatest,
 		),
 	)
-	val := testutils.HexToBigInt(t, valHex)
+	val := unittest.HexToBigInt(t, valHex)
 	// The initial value should be 0 since the contract is just deployed.
 	require.Zero(t, val.Int64())
 
@@ -660,7 +660,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 			model.EthBlockLatest,
 		),
 	)
-	nonce2 := testutils.HexToBigInt(t, nonceHex2)
+	nonce2 := unittest.HexToBigInt(t, nonceHex2)
 
 	// Prepare the transaction to call the `set` function of the contract with a new value (7).
 	// cf. internal/utils/contracts/SimpleStorageContract.sol
@@ -729,7 +729,7 @@ func TestContractDeploymentAndInteraction(t *testing.T) {
 		),
 	)
 	// The value should now be 7, as we set it in the previous transaction.
-	val = testutils.HexToBigInt(t, valHex)
+	val = unittest.HexToBigInt(t, valHex)
 	require.Equal(t, int64(7), val.Int64())
 
 	// The SimpleStorageContract emits an event when the value is set.
@@ -908,14 +908,14 @@ func TestPeerConnectivity_FiveNodes(t *testing.T) {
 	require.NoError(t, nodes[0].CallContext(ctx, &minerPeerCount, model.NetPeerCount))
 
 	// Convert hex peer count to int for validation
-	peerCount := testutils.HexToBigInt(t, minerPeerCount)
+	peerCount := unittest.HexToBigInt(t, minerPeerCount)
 	require.Greater(t, peerCount.Int64(), int64(0), "miner should have at least one peer")
 
 	// Optional: Verify that we can get some peer count from each node
 	for i := 1; i < nodeCount; i++ {
 		var peerCountHex string
 		require.NoError(t, nodes[i].CallContext(ctx, &peerCountHex, model.NetPeerCount))
-		peerCountInt := testutils.HexToBigInt(t, peerCountHex)
+		peerCountInt := unittest.HexToBigInt(t, peerCountHex)
 		require.GreaterOrEqual(
 			t,
 			peerCountInt.Int64(),
@@ -992,8 +992,8 @@ func TestSyncStatus(t *testing.T) {
 		// If both fields exist and are equal, the node is caught up (not actively syncing blocks)
 		// This may still show sync status due to transaction indexing, which is acceptable
 		if hasCurrentBlock && hasHighestBlock {
-			currentBlock := testutils.HexToBigInt(t, currentBlockHex)
-			highestBlock := testutils.HexToBigInt(t, highestBlockHex)
+			currentBlock := unittest.HexToBigInt(t, currentBlockHex)
+			highestBlock := unittest.HexToBigInt(t, highestBlockHex)
 
 			// If currentBlock == highestBlock, the node is caught up with the chain
 			// Transaction indexing may still be ongoing, but that's not a sync issue
