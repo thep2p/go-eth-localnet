@@ -431,6 +431,80 @@ func (c *Client) GetSyncStatus() (SyncStatus, error) {
 - ✅ Implement subset of functionality fully
 - ❌ DON'T implement everything as stubs
 
+### Pull Request and Testing Requirements
+
+**CRITICAL: Pull requests MUST NOT contain:**
+
+1. **Skipped Tests** - All tests must run and pass
+   - ❌ WRONG: `t.Skip("Skipping until #123 is implemented")`
+   - ❌ WRONG: `// TODO: Add test for feature X when #124 is done`
+   - ✅ RIGHT: Only include tests that run and verify working functionality
+   - ✅ RIGHT: If functionality isn't complete, don't add the test yet
+
+2. **Stub Functions** - All functions must have real implementations
+   - ❌ WRONG: Functions that return `nil` with TODO comments
+   - ❌ WRONG: Functions that return `fmt.Errorf("not implemented")`
+   - ❌ WRONG: Empty functions with only logging statements
+   - ✅ RIGHT: Functions that do real work and can be tested
+
+3. **Placeholder Fields** - All struct fields must be used
+   - ❌ WRONG: `//nolint:unused // Will be used in #123`
+   - ❌ WRONG: Fields declared as `interface{}` waiting for future types
+   - ❌ WRONG: Fields that are never initialized or accessed
+   - ✅ RIGHT: Only declare fields that are actually used in the PR
+
+4. **Half-Implemented Features** - Features must be complete or not included
+   - ❌ WRONG: Adding 5 methods where 4 are stubs and 1 works
+   - ❌ WRONG: Creating infrastructure for future functionality
+   - ❌ WRONG: "Configuration foundation" that configures nothing
+   - ✅ RIGHT: One complete method that works end-to-end
+   - ✅ RIGHT: Complete, testable, demonstrable functionality
+
+**How to handle incomplete work:**
+
+If you can't complete a feature in one PR:
+1. **Option A (Recommended):** Scope down to what you CAN complete
+   - Example: Instead of "Add Prysm client" → "Add Prysm genesis state generation"
+   - Merge only the working parts, implement the rest in follow-up PRs
+
+2. **Option B:** Document planned structure in issue description
+   - Put code examples in issue #123 description as guidance
+   - Don't commit the placeholder code to the main branch
+   - Implement it fully when you actually work on issue #123
+
+3. **NEVER Option C:** Don't merge half-complete code hoping to "fill it in later"
+   - This creates technical debt immediately
+   - Makes codebase confusing (what works vs what doesn't?)
+   - Violates the core principle of this project
+
+**Test Coverage Requirements:**
+
+Every PR must have:
+- ✅ Tests for all new functions/methods
+- ✅ All tests passing (no skips, no failures)
+- ✅ Tests that verify actual behavior, not just lifecycle
+- ❌ No tests marked with `t.Skip()` for future features
+- ❌ No test stubs that don't actually test anything
+
+**Example of Good vs Bad PR:**
+
+❌ **BAD PR - "Add Prysm Client Foundation"**
+```
+Files:
+- client.go (5 stub methods with TODOs)
+- client_test.go (tests pass but methods return nil)
+- integration_test.go (all tests skipped)
+Result: 400 LOC, 0% functional
+```
+
+✅ **GOOD PR - "Add Prysm Genesis State Generation"**
+```
+Files:
+- genesis.go (GenerateGenesisState, DeriveGenesisRoot - both complete)
+- genesis_test.go (comprehensive tests, all passing)
+Result: 460 LOC, 100% functional
+```
+
 ## Development Workflow
 
 **IMPORTANT: Follow all coding best practices listed in AGENTS.md**
