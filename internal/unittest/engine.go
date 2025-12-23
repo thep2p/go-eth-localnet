@@ -27,7 +27,7 @@ func DialEngineAPI(ctx context.Context, endpoint string, jwtPath string) (*rpc.C
 		return nil, fmt.Errorf("decode jwt: %w", err)
 	}
 
-	// JWT secret must be exactly 32 bytes
+	// jwt secret must be exactly 32 bytes
 	if len(jwtBytes) != 32 {
 		return nil, fmt.Errorf("jwt secret must be 32 bytes, got %d", len(jwtBytes))
 	}

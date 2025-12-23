@@ -521,6 +521,128 @@ func (c *Client) GetValidators() ([]Validator, error) {
 
 **If any answer is "no", the PR is not ready.**
 
+### Pull Request Enforcement Rules
+
+**CRITICAL: The following are STRICTLY PROHIBITED in pull requests:**
+
+#### 1. Skipped Tests
+- ❌ **NEVER** commit tests with `t.Skip("Skipping until #123 is implemented")`
+- ❌ **NEVER** commit placeholder tests that don't run
+- ❌ **NEVER** commit tests waiting for future functionality
+- ✅ **ONLY** commit tests that run and verify working functionality
+- ✅ **IF** functionality isn't complete, don't add the test yet
+
+**Example:**
+```go
+// ❌ WRONG - This test will be merged but never runs
+func TestPrysmIntegration(t *testing.T) {
+    t.Skip("Skipping until #49 is implemented")
+    // 50 lines of test code that never executes
+}
+
+// ✅ RIGHT - Don't add the test until #49 is complete
+// (test doesn't exist in the PR at all)
+```
+
+#### 2. Stub Functions
+- ❌ **NEVER** commit functions that return `nil` with TODO comments
+- ❌ **NEVER** commit functions that return `fmt.Errorf("not implemented")`
+- ❌ **NEVER** commit empty functions with only logging statements
+- ✅ **ONLY** commit functions with real, working implementations
+
+**Example:**
+```go
+// ❌ WRONG - Stub method with TODO
+func (c *Client) initBeaconNode(ctx context.Context) error {
+    c.logger.Info().Msg("initializing beacon node")
+    // TODO(#45): Implement beacon node initialization
+    return nil
+}
+
+// ✅ RIGHT - Complete implementation or don't include it
+func (c *Client) initBeaconNode(ctx context.Context) error {
+    c.logger.Info().Msg("initializing beacon node")
+
+    // Create beacon node configuration
+    cfg := beacon.DefaultConfig()
+    cfg.DataDir = c.config.DataDir
+    cfg.P2PPort = c.config.P2PPort
+
+    // Initialize beacon node
+    node, err := beacon.New(cfg)
+    if err != nil {
+        return fmt.Errorf("create beacon node: %w", err)
+    }
+
+    c.beaconNode = node
+    return nil
+}
+```
+
+#### 3. Placeholder Fields
+- ❌ **NEVER** commit struct fields with `//nolint:unused // Will be used in #123`
+- ❌ **NEVER** commit fields declared as `interface{}` waiting for future types
+- ❌ **NEVER** commit fields that are never initialized or accessed
+- ✅ **ONLY** commit fields that are actually used in the PR
+
+**Example:**
+```go
+// ❌ WRONG - Placeholder fields
+type Client struct {
+    //nolint:unused // Will be used in #45
+    beaconNode interface{}
+
+    //nolint:unused // Will be used in #46
+    validatorClient interface{}
+}
+
+// ✅ RIGHT - Only declare fields when you use them
+type GenesisGenerator struct {
+    validatorKeys []bls.SecretKey
+    genesisTime   time.Time
+}
+```
+
+#### 4. Test Files Full of Skips
+- ❌ **NEVER** commit test files where all or most tests are skipped
+- ❌ **NEVER** commit 200+ line test files that test nothing
+- ✅ **IF** integration tests can't run yet, don't add them yet
+- ✅ **WAIT** until the functionality exists to add integration tests
+
+**Example:**
+```go
+// ❌ WRONG - integration_test.go with all tests skipped
+func TestPrysmGethIntegration(t *testing.T) {
+    t.Skip("Skipping until #49") // 100 lines never run
+}
+
+func TestMultiNodeConsensus(t *testing.T) {
+    t.Skip("Skipping until #49") // 100 lines never run
+}
+
+// ✅ RIGHT - Don't add integration_test.go until #49 is being implemented
+// (file doesn't exist in the PR)
+```
+
+#### 5. Percentage-Based PR Quality
+
+Before submitting, calculate what percentage of your PR actually works:
+
+```
+Working LOC / Total LOC = Functional Percentage
+```
+
+**Requirements:**
+- ✅ **100% functional** - Perfect, merge it
+- ⚠️ **80-99% functional** - Review and remove non-functional parts
+- ❌ **< 80% functional** - PR is too incomplete, scope down significantly
+
+**Example from PR #43:**
+- Total LOC: 1,680
+- Functional LOC: 460 (genesis.go + genesis_test.go only)
+- Functional percentage: 27%
+- **Decision: REJECT - Remove all incomplete code, merge only genesis functionality**
+
 ### Examples from This Project
 
 **Previous anti-pattern (what NOT to do):**
