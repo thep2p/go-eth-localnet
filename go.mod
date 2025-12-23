@@ -10,7 +10,6 @@ require (
 	github.com/prysmaticlabs/prysm/v5 v5.3.3
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
-	github.com/thep2p/skipgraph-go v0.0.0-20251125015026-6ab26ee829f3
 )
 
 require (
