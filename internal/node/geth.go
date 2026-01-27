@@ -134,9 +134,9 @@ func (l *Launcher) Launch(cfg model.Config, opts ...LaunchOption) (*node.Node, e
 		if l.minerCount > 1 {
 			l.logger.Warn().Int("miner_count", l.minerCount).Msg("multiple miners detected - only one should produce blocks to avoid conflicts")
 		}
-		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, common.Address{}, ethService)
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(1, ethService)
 	} else {
-		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, common.Address{}, ethService)
+		simBeacon, beaconErr = catalyst.NewSimulatedBeacon(0, ethService)
 	}
 	if beaconErr != nil {
 		return nil, fmt.Errorf("simulated beacon: %w", beaconErr)
