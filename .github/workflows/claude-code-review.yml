@@ -6,8 +6,15 @@ on:
 
 jobs:
   claude-review:
-    # Run only on /review comment on a PR
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/review')
+    # Run only on /review comment on a PR from authorized users
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(toLower(github.event.comment.body), '/review') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
 
     runs-on: ubuntu-latest
     permissions:
@@ -20,6 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
           fetch-depth: 1
 
       - name: Set up Go
