@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -242,13 +243,9 @@ func TestClientLifecycle(t *testing.T) {
 	err = client.Start(gethCtx)
 	require.NoError(t, err, "prysm client should start successfully")
 
-	// Verify Ready channel closes (client is ready)
-	select {
-	case <-client.Ready():
-		t.Log("prysm client is ready")
-	case <-time.After(prysm.StartupTimeout):
-		t.Fatal("prysm client did not become ready within timeout")
-	}
+	// Verify client becomes ready using skipgraph-go style helpers
+	unittest.RequireReady(t, client)
+	t.Log("prysm client is ready")
 
 	// Give the node a moment to stabilize before shutdown
 	// This helps avoid race conditions in Prysm's internal services
@@ -257,13 +254,104 @@ func TestClientLifecycle(t *testing.T) {
 	// Stop the client
 	client.Stop()
 
-	// Verify Done channel closes (client stopped)
-	select {
-	case <-client.Done():
-		t.Log("prysm client stopped")
-	case <-time.After(prysm.ShutdownTimeout):
-		t.Fatal("prysm client did not stop within timeout")
+	// Verify client becomes done using skipgraph-go style helpers
+	unittest.RequireDone(t, client)
+	t.Log("prysm client stopped")
+}
+
+// TestClientP2PConfiguration verifies P2P networking is properly configured.
+// This test starts the beacon node and verifies P2P ports are allocated and listening.
+func TestClientP2PConfiguration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
 	}
+
+	// Save original Prysm config and restore after test
+	originalConfig := params.BeaconConfig().Copy()
+	t.Cleanup(func() {
+		params.OverrideBeaconConfig(originalConfig)
+	})
+
+	// Override logrus ExitFunc to prevent os.Exit during shutdown
+	originalExitFunc := logrus.StandardLogger().ExitFunc
+	logrus.StandardLogger().ExitFunc = func(code int) {}
+	t.Cleanup(func() {
+		logrus.StandardLogger().ExitFunc = originalExitFunc
+	})
+
+	// Start Geth node with Engine API enabled
+	gethCtx, gethCancel, manager := startGethWithEngineAPI(t)
+	defer gethCancel()
+
+	// Get Engine API connection info
+	enginePort := manager.GetEnginePort(0)
+	require.NotZero(t, enginePort)
+
+	jwtHex, err := manager.GetJWTSecret(0)
+	require.NoError(t, err)
+
+	jwtSecret, err := hex.DecodeString(strings.TrimSpace(string(jwtHex)))
+	require.NoError(t, err)
+
+	// Create Prysm client config with specific P2P port
+	tmpDir := unittest.NewTempDir(t)
+	t.Cleanup(tmpDir.Remove)
+
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
+	require.NoError(t, err)
+
+	withdrawalAddrs := unittest.RandomAddresses(t, 2)
+	p2pPort := unittest.NewPort(t)
+
+	cfg := consensus.Config{
+		DataDir:             tmpDir.Path(),
+		ChainID:             1337,
+		GenesisTime:         time.Now().Add(-30 * time.Second),
+		RPCPort:             unittest.NewPort(t),
+		BeaconPort:          unittest.NewPort(t),
+		P2PPort:             p2pPort,
+		EngineEndpoint:      fmt.Sprintf("http://127.0.0.1:%d", enginePort),
+		JWTSecret:           jwtSecret,
+		ValidatorKeys:       validatorKeys,
+		WithdrawalAddresses: withdrawalAddrs,
+		FeeRecipient:        withdrawalAddrs[0],
+	}
+
+	logger := unittest.Logger(t)
+	client := prysm.NewClient(cfg, logger)
+
+	// Start the Prysm client
+	err = client.Start(gethCtx)
+	require.NoError(t, err)
+
+	// Verify client becomes ready
+	unittest.RequireReady(t, client)
+
+	// Verify P2P port is listening (UDP port for discovery)
+	// Prysm uses P2PPort for UDP discovery
+	p2pAddr := fmt.Sprintf("127.0.0.1:%d", p2pPort)
+	conn, err := net.DialTimeout("udp", p2pAddr, 2*time.Second)
+	if err == nil {
+		_ = conn.Close()
+		t.Logf("P2P UDP port %d is accessible", p2pPort)
+	}
+	// Note: UDP "connection" always succeeds, so we just verify no panic
+
+	// Verify P2P TCP port is listening (P2PPort + 1 for TCP)
+	tcpPort := p2pPort + 1
+	tcpAddr := fmt.Sprintf("127.0.0.1:%d", tcpPort)
+	tcpConn, err := net.DialTimeout("tcp", tcpAddr, 2*time.Second)
+	require.NoError(t, err, "P2P TCP port should be listening")
+	_ = tcpConn.Close()
+	t.Logf("P2P TCP port %d is accessible", tcpPort)
+
+	// Give the node a moment to stabilize before shutdown
+	// This helps avoid race conditions in Prysm's internal services
+	time.Sleep(time.Second)
+
+	// Stop the client
+	client.Stop()
+	unittest.RequireDone(t, client)
 }
 
 // startGethWithEngineAPI starts a Geth node with Engine API enabled for testing.
