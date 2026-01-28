@@ -1,21 +1,13 @@
 name: Claude Code Review
 
 on:
-  push:
-    branches:
-      - main
-      - 'feature/**'
-      - 'fix/**'
-  pull_request:
-    types: [opened, synchronize]
-    # Run on Go-related file changes and workflow modifications
+  issue_comment:
+    types: [created]
 
 jobs:
   claude-review:
-    # Run on: PR ready_for_review OR /review comment on a PR
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review'))
+    # Run only on /review comment on a PR
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/review')
 
     runs-on: ubuntu-latest
     permissions:
@@ -52,10 +44,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            EVENT: ${{ github.event_name }}
-            ${{ github.event_name == 'pull_request' && format('PR NUMBER: {0}', github.event.pull_request.number) || format('BRANCH: {0}', github.ref_name) }}
+            PR NUMBER: ${{ github.event.issue.number }}
 
-            Please review ${{ github.event_name == 'pull_request' && 'this pull request' || 'the recent changes' }} with focus on go-eth-localnet project-specific requirements.
+            Please review this pull request with focus on go-eth-localnet project-specific requirements.
 
             ## Go Best Practices & Code Quality
             - Verify code follows idiomatic Go style and conventions
@@ -100,7 +91,7 @@ jobs:
             Use the repository's CLAUDE.md and AGENTS.md for complete style and convention guidance.
             Be constructive and specific in feedback, referencing file:line for issues found.
 
-            ${{ github.event_name == 'pull_request' && 'Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.' || 'Report your findings in the action output. If critical issues are found, exit with an error code.' }}
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
 
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
