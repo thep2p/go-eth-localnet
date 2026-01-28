@@ -9,6 +9,7 @@ require (
 	github.com/go-playground/validator/v10 v10.25.0
 	github.com/prysmaticlabs/prysm/v5 v5.3.3
 	github.com/rs/zerolog v1.34.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
 )
@@ -187,7 +188,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/schollz/progressbar/v3 v3.3.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect

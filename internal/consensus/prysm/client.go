@@ -16,6 +16,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/db/filesystem"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/execution"
 	beaconnode "github.com/prysmaticlabs/prysm/v5/beacon-chain/node"
+	"github.com/prysmaticlabs/prysm/v5/beacon-chain/sync/genesis"
 )
 
 // Timeout constants for client operations.
@@ -108,10 +109,18 @@ func (c *Client) Start(ctx context.Context) error {
 	c.cancel = cancel
 	cliCtx.Context = nodeCtx
 
-	// Create beacon node with blob storage and execution chain configuration
+	// Create genesis initializer to load genesis state into database
+	genesisInit, err := genesis.NewFileInitializer(genesisPath)
+	if err != nil {
+		cancel()
+		return fmt.Errorf("create genesis initializer: %w", err)
+	}
+
+	// Create beacon node with genesis state, blob storage and execution chain configuration
 	c.logger.Info().Msg("creating beacon node")
 	blobPath := filepath.Join(c.cfg.DataDir, "blobs")
 	bn, err := beaconnode.New(cliCtx, cancel,
+		withGenesisInitializer(genesisInit),
 		beaconnode.WithBlobStorageOptions(filesystem.WithBasePath(blobPath)),
 		beaconnode.WithExecutionChainOptions([]execution.Option{
 			execution.WithHttpEndpointAndJWTSecret(c.cfg.EngineEndpoint, c.cfg.JWTSecret),
@@ -209,4 +218,13 @@ func (c *Client) waitForReady(ctx context.Context) error {
 	}
 
 	return fmt.Errorf("beacon node not ready within %s", StartupTimeout)
+}
+
+// withGenesisInitializer returns a BeaconNode option that sets the genesis initializer.
+// This ensures the genesis state is loaded into the database before the beacon node starts.
+func withGenesisInitializer(init genesis.Initializer) beaconnode.Option {
+	return func(node *beaconnode.BeaconNode) error {
+		node.GenesisInitializer = init
+		return nil
+	}
 }

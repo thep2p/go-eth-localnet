@@ -84,9 +84,6 @@ func registerFlags(set *flag.FlagSet) {
 
 	// Minimal config for local testing (faster epoch times, less validators needed)
 	set.Bool(cmd.MinimalConfigFlag.Name, false, cmd.MinimalConfigFlag.Usage)
-
-	// Test flag to skip execution layer connection (for unit testing)
-	set.Bool("test-skip-pow", false, "Skip execution layer connection for testing")
 }
 
 // setFlagValues sets flag values from consensus.Config.
@@ -141,7 +138,6 @@ func setFlagValues(set *flag.FlagSet, cfg consensus.Config, genesisStatePath str
 		cmd.ForceClearDB.Name,
 		cmd.DisableMonitoringFlag.Name,
 		cmd.MinimalConfigFlag.Name,
-		"test-skip-pow", // Skip execution layer for testing
 	}
 
 	for _, name := range boolFlags {

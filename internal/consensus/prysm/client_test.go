@@ -2,12 +2,18 @@ package prysm_test
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/prysmaticlabs/prysm/v5/config/params"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/thep2p/go-eth-localnet/internal/consensus"
 	"github.com/thep2p/go-eth-localnet/internal/consensus/prysm"
+	"github.com/thep2p/go-eth-localnet/internal/node"
 	"github.com/thep2p/go-eth-localnet/internal/unittest"
 )
 
@@ -161,4 +167,133 @@ func TestClientConstants(t *testing.T) {
 
 	// StartupTimeout should be longer than ShutdownTimeout (starting takes longer)
 	require.GreaterOrEqual(t, prysm.StartupTimeout, prysm.ShutdownTimeout)
+}
+
+// TestClientLifecycle verifies the full beacon node lifecycle with a real Geth node.
+// This test starts a Geth node with Engine API, then starts the Prysm beacon node
+// connected to it, and verifies the beacon node becomes ready.
+//
+// Note: This test uses Prysm's minimal config, which modifies global state.
+// It must not run in parallel with tests that depend on mainnet config.
+func TestClientLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// Save original Prysm config and restore after test
+	// Prysm uses global state for beacon config, which affects other tests
+	originalConfig := params.BeaconConfig().Copy()
+	t.Cleanup(func() {
+		params.OverrideBeaconConfig(originalConfig)
+	})
+
+	// Override logrus ExitFunc to prevent os.Exit during shutdown
+	// Prysm's P2P service calls log.Fatal during context cancellation
+	originalExitFunc := logrus.StandardLogger().ExitFunc
+	logrus.StandardLogger().ExitFunc = func(code int) {
+		t.Logf("logrus.Fatal called with code %d (ignored)", code)
+	}
+	t.Cleanup(func() {
+		logrus.StandardLogger().ExitFunc = originalExitFunc
+	})
+
+	// Start Geth node with Engine API enabled
+	gethCtx, gethCancel, manager := startGethWithEngineAPI(t)
+	defer gethCancel()
+
+	// Get Engine API connection info
+	enginePort := manager.GetEnginePort(0)
+	require.NotZero(t, enginePort, "engine api port should be assigned")
+
+	jwtHex, err := manager.GetJWTSecret(0)
+	require.NoError(t, err, "jwt secret should be readable")
+
+	// Decode hex JWT secret to bytes
+	jwtSecret, err := hex.DecodeString(strings.TrimSpace(string(jwtHex)))
+	require.NoError(t, err, "jwt secret should be valid hex")
+
+	// Create Prysm client config
+	tmpDir := unittest.NewTempDir(t)
+	t.Cleanup(tmpDir.Remove)
+
+	validatorKeys, err := prysm.GenerateValidatorKeys(2)
+	require.NoError(t, err)
+
+	withdrawalAddrs := unittest.RandomAddresses(t, 2)
+
+	cfg := consensus.Config{
+		DataDir:             tmpDir.Path(),
+		ChainID:             1337,
+		GenesisTime:         time.Now().Add(-30 * time.Second),
+		RPCPort:             unittest.NewPort(t),
+		BeaconPort:          unittest.NewPort(t),
+		P2PPort:             unittest.NewPort(t),
+		EngineEndpoint:      fmt.Sprintf("http://127.0.0.1:%d", enginePort),
+		JWTSecret:           jwtSecret,
+		ValidatorKeys:       validatorKeys,
+		WithdrawalAddresses: withdrawalAddrs,
+		FeeRecipient:        withdrawalAddrs[0],
+	}
+
+	logger := unittest.Logger(t)
+	client := prysm.NewClient(cfg, logger)
+
+	// Start the Prysm client
+	err = client.Start(gethCtx)
+	require.NoError(t, err, "prysm client should start successfully")
+
+	// Verify Ready channel closes (client is ready)
+	select {
+	case <-client.Ready():
+		t.Log("prysm client is ready")
+	case <-time.After(prysm.StartupTimeout):
+		t.Fatal("prysm client did not become ready within timeout")
+	}
+
+	// Give the node a moment to stabilize before shutdown
+	// This helps avoid race conditions in Prysm's internal services
+	time.Sleep(time.Second)
+
+	// Stop the client
+	client.Stop()
+
+	// Verify Done channel closes (client stopped)
+	select {
+	case <-client.Done():
+		t.Log("prysm client stopped")
+	case <-time.After(prysm.ShutdownTimeout):
+		t.Fatal("prysm client did not stop within timeout")
+	}
+}
+
+// startGethWithEngineAPI starts a Geth node with Engine API enabled for testing.
+func startGethWithEngineAPI(t *testing.T) (context.Context, context.CancelFunc, *node.Manager) {
+	t.Helper()
+
+	tmp := unittest.NewTempDir(t)
+	launcher := node.NewLauncher(unittest.Logger(t))
+	manager := node.NewNodeManager(
+		unittest.Logger(t), launcher, tmp.Path(), func() int {
+			return unittest.NewPort(t)
+		},
+	)
+
+	// Enable Engine API before starting nodes
+	require.NoError(t, manager.EnableEngineAPI(), "enable engine api should succeed")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(tmp.Remove)
+	t.Cleanup(func() {
+		unittest.RequireCallMustReturnWithinTimeout(
+			t, manager.Done, node.ShutdownTimeout, "node shutdown failed",
+		)
+	})
+
+	require.NoError(t, manager.Start(ctx, 1))
+	gethNode := manager.GethNode()
+	require.NotNil(t, gethNode)
+
+	unittest.RequireRpcReadyWithinTimeout(t, ctx, manager.RPCPort(), node.OperationTimeout)
+
+	return ctx, cancel, manager
 }
