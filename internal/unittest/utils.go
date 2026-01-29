@@ -43,3 +43,67 @@ func ChannelMustCloseWithinTimeout(
 		require.Fail(t, fmt.Sprintf("channel did not close on time: %s", failureMsg))
 	}
 }
+
+// DefaultReadyDoneTimeout is the default timeout for Ready/Done channel checks.
+// This matches the skipgraph-go unittest default.
+const DefaultReadyDoneTimeout = 10 * time.Second
+
+// ReadyDoneAware is implemented by components with Ready and Done lifecycle channels.
+// This interface mirrors github.com/thep2p/skipgraph-go/modules.ReadyDoneAware but uses
+// chan struct{} which is idiomatic Go for signal-only channels.
+type ReadyDoneAware interface {
+	Ready() <-chan struct{}
+	Done() <-chan struct{}
+}
+
+// RequireReady waits for the component to become ready within DefaultReadyDoneTimeout.
+// Fails the test if the Ready channel doesn't close in time.
+func RequireReady(t *testing.T, component ReadyDoneAware) {
+	t.Helper()
+	select {
+	case <-component.Ready():
+		return
+	case <-time.After(DefaultReadyDoneTimeout):
+		require.Fail(t, "component did not become ready within timeout")
+	}
+}
+
+// RequireDone waits for the component to become done within DefaultReadyDoneTimeout.
+// Fails the test if the Done channel doesn't close in time.
+func RequireDone(t *testing.T, component ReadyDoneAware) {
+	t.Helper()
+	select {
+	case <-component.Done():
+		return
+	case <-time.After(DefaultReadyDoneTimeout):
+		require.Fail(t, "component did not become done within timeout")
+	}
+}
+
+// RequireAllReady waits for all components to become ready within DefaultReadyDoneTimeout.
+// Fails the test if any Ready channel doesn't close in time.
+func RequireAllReady(t *testing.T, components ...ReadyDoneAware) {
+	t.Helper()
+	for i, c := range components {
+		select {
+		case <-c.Ready():
+			continue
+		case <-time.After(DefaultReadyDoneTimeout):
+			require.Fail(t, fmt.Sprintf("component %d did not become ready within timeout", i))
+		}
+	}
+}
+
+// RequireAllDone waits for all components to become done within DefaultReadyDoneTimeout.
+// Fails the test if any Done channel doesn't close in time.
+func RequireAllDone(t *testing.T, components ...ReadyDoneAware) {
+	t.Helper()
+	for i, c := range components {
+		select {
+		case <-c.Done():
+			continue
+		case <-time.After(DefaultReadyDoneTimeout):
+			require.Fail(t, fmt.Sprintf("component %d did not become done within timeout", i))
+		}
+	}
+}
