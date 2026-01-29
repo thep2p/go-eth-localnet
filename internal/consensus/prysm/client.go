@@ -68,7 +68,8 @@ func NewClient(cfg consensus.Config, logger zerolog.Logger) *Client {
 // Args:
 //   - ctx: context for cancellation
 //
-// Returns error if startup fails.
+// Returns error if startup fails. On error, both Ready() and Done() channels are
+// closed to prevent callers from blocking indefinitely.
 //
 // All errors are CRITICAL and indicate the beacon node cannot start.
 func (c *Client) Start(ctx context.Context) error {
@@ -78,6 +79,20 @@ func (c *Client) Start(ctx context.Context) error {
 		return fmt.Errorf("client already started")
 	}
 	c.mu.Unlock()
+
+	// Track startup state for proper channel cleanup on error paths.
+	// - closeReady: if true when defer runs, close ready channel
+	// - goroutineStarted: if false when defer runs, close done channel
+	goroutineStarted := false
+	closeReady := true
+	defer func() {
+		if closeReady {
+			close(c.ready)
+		}
+		if !goroutineStarted {
+			close(c.done)
+		}
+	}()
 
 	// Ensure data directory exists
 	if err := os.MkdirAll(c.cfg.DataDir, 0755); err != nil {
@@ -135,7 +150,8 @@ func (c *Client) Start(ctx context.Context) error {
 	c.beaconNode = bn
 	c.mu.Unlock()
 
-	// Start beacon node in background
+	// Start beacon node in background - goroutine takes ownership of done channel
+	goroutineStarted = true
 	go func() {
 		c.logger.Info().Msg("starting beacon node")
 		bn.Start()
@@ -151,6 +167,7 @@ func (c *Client) Start(ctx context.Context) error {
 		return fmt.Errorf("wait for ready: %w", err)
 	}
 
+	closeReady = false // Prevent double-close by defer
 	close(c.ready)
 	c.logger.Info().Msg("prysm beacon node started")
 	return nil
