@@ -65,11 +65,11 @@ type Service struct {
 - NEVER send on Ready/Done channels, only close them
 
 **Testing:**
-- ALWAYS use `unittest.RequireAllReady()` instead of manual select with time.After
-- ALWAYS use `unittest.RequireAllDone()` for shutdown verification
-- Use `unittest.ChannelMustCloseWithinTimeout()` for specific channel testing
+- When skipgraph-go is added: use `skipgraphtest.RequireAllReady()` and `skipgraphtest.RequireAllDone()` from `github.com/thep2p/skipgraph-go/unittest`
+- Until skipgraph-go is added: use local `unittest.RequireCallMustReturnWithinTimeout()` and `unittest.ChannelMustCloseWithinTimeout()` from `internal/unittest/`
 - Use `unittest.Logger()` to inject test loggers
 - Create MockComponents for testing component interactions
+- NEVER use manual select with time.After - causes goroutine leaks
 
 # Lifecycle State Machine
 
@@ -136,12 +136,15 @@ When implementing or reviewing code, verify:
 - [ ] Cleanup happens even on error paths
 
 ✅ **Testing:**
-- [ ] Tests use unittest.RequireAllReady/RequireAllDone
+- [ ] Tests use skipgraphtest helpers (RequireAllReady/RequireAllDone) when skipgraph-go is a dependency
+- [ ] Or use local unittest helpers (RequireCallMustReturnWithinTimeout/ChannelMustCloseWithinTimeout) otherwise
 - [ ] No manual select with time.After for timeouts
 - [ ] MockComponents used where appropriate
 - [ ] Logger injected via unittest.Logger()
 
 # Required Imports
+
+**IMPORTANT:** The `skipgraph-go` dependency must be added to `go.mod` when implementing lifecycle patterns. Add it only when you actually import from it (not as an unused dependency).
 
 When importing lifecycle patterns, include:
 ```go
@@ -150,9 +153,17 @@ import (
     "github.com/thep2p/skipgraph-go/modules/component"
     "github.com/thep2p/skipgraph-go/modules/worker"
     "github.com/thep2p/skipgraph-go/modules/throwable"
-    "github.com/thep2p/skipgraph-go/unittest"  // For testing only
+    "github.com/thep2p/skipgraph-go/unittest"  // For testing only (provides RequireAllReady, RequireAllDone)
     "github.com/rs/zerolog"
 )
+```
+
+**Until skipgraph-go is added:** Use local helpers from `internal/unittest/`:
+```go
+import (
+    "github.com/thep2p/go-eth-localnet/internal/unittest"
+)
+// Use: unittest.RequireCallMustReturnWithinTimeout(), unittest.ChannelMustCloseWithinTimeout()
 ```
 
 # Reference Implementation Locations

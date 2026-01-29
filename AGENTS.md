@@ -55,20 +55,23 @@ internal/unittest/          # All test utilities and mocks
 - All test-related code (helpers + mocks) centralizes under `internal/unittest/`
 
 **Component Lifecycle Testing:**
-- Test components implement the `modules.Component` lifecycle pattern
-- **CRITICAL: Use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone` instead of ad-hoc select statements**
-- NEVER write manual select statements to check `Ready()` or `Done()` channels
-- These helpers provide better error messages and consistent timeout handling
-- The helpers use a default timeout internally, so no timeout parameter is needed
+- Test components implement lifecycle patterns with Ready/Done channels
+- **CRITICAL: Use `unittest` helpers instead of ad-hoc select statements**
+- NEVER write manual select statements to check channels with `time.After`
+- Available helpers in `internal/unittest/`:
+  - `RequireCallMustReturnWithinTimeout(t, func(), timeout, msg)` - Fails if function doesn't return in time
+  - `ChannelMustCloseWithinTimeout(t, chan, timeout, msg)` - Fails if channel doesn't close in time
 - Use `context.WithCancel()` for graceful shutdown testing
 - Test context cancellation triggers proper component cleanup
 - Example of CORRECT pattern:
   ```go
   client.Start(ctx)
-  skipgraphtest.RequireAllReady(t, client)
+  unittest.RequireCallMustReturnWithinTimeout(t, func() {
+      <-client.Ready()
+  }, node.StartupTimeout, "client ready")
 
-  mockCtx.Cancel()
-  skipgraphtest.RequireAllDone(t, client)
+  cancel()
+  unittest.ChannelMustCloseWithinTimeout(t, client.Done(), node.StartupTimeout, "client done")
   ```
 - Example of INCORRECT pattern (DO NOT USE):
   ```go
@@ -79,14 +82,11 @@ internal/unittest/          # All test utilities and mocks
       t.Fatal("not ready")
   }
   ```
-- For multiple components, pass them all to the helper:
-  ```go
-  skipgraphtest.RequireAllReady(t, client1, client2, client3)
-  ```
+- **Note:** When implementing Component lifecycle patterns from `github.com/thep2p/skipgraph-go`, that dependency will be added and `skipgraphtest.RequireAllReady/RequireAllDone` helpers will become available.
 
 **Avoiding Common Pitfalls:**
 - NEVER use `select` with `time.After` directly - causes goroutine leaks in loops
-- NEVER write ad-hoc select statements for component Ready/Done - use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone`
+- NEVER write ad-hoc select statements for channel waits - use `unittest.RequireCallMustReturnWithinTimeout` and `unittest.ChannelMustCloseWithinTimeout`
 - ALWAYS use test helper functions for timeouts (e.g., waiting on channels with timeout)
 - NEVER skip cleanup in tests - always use `t.Cleanup()` or `defer`
 - ALWAYS test both success and failure paths
@@ -247,7 +247,7 @@ func GenerateTestValidators(count int) ([]string, error) {
 - Don't reinvent patterns already solved in the codebase
 
 **Examples:**
-- Use `skipgraphtest.RequireAllReady` instead of manual select statements
+- Use `unittest.RequireCallMustReturnWithinTimeout` instead of manual select statements
 - Use `common.Hash` from go-ethereum instead of `[32]byte`
 - Use `unittest.NewPort()` instead of hardcoding port numbers
 
@@ -387,7 +387,9 @@ func TestClientLifecycle(t *testing.T) {
     defer cancel()
 
     client.Start(ctx)
-    skipgraphtest.RequireAllReady(t, client)
+    unittest.RequireCallMustReturnWithinTimeout(t, func() {
+        <-client.Ready()
+    }, node.StartupTimeout, "client ready")
 
     // Actually works!
     status, err := client.GetSyncStatus()
@@ -395,7 +397,7 @@ func TestClientLifecycle(t *testing.T) {
     require.NotNil(t, status)
 
     cancel()
-    skipgraphtest.RequireAllDone(t, client)
+    unittest.ChannelMustCloseWithinTimeout(t, client.Done(), node.StartupTimeout, "client done")
 }
 ```
 

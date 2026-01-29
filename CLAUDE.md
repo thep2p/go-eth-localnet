@@ -118,17 +118,20 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, contex
 - This ensures consistent timeout behavior across all tests
 
 **Testing Component Lifecycle:**
-- **CRITICAL: Use `skipgraphtest.RequireAllReady` and `skipgraphtest.RequireAllDone` instead of ad-hoc select statements**
-- NEVER write manual select statements to check `Ready()` or `Done()` channels
-- These helpers provide better error messages and consistent timeout handling
-- The helpers use a default timeout internally, so no timeout parameter is needed
+- **CRITICAL: Use `unittest` helpers instead of ad-hoc select statements**
+- NEVER write manual select statements to check channels with `time.After`
+- Available helpers in `internal/unittest/`:
+  - `RequireCallMustReturnWithinTimeout(t, func(), timeout, msg)` - Fails if function doesn't return in time
+  - `ChannelMustCloseWithinTimeout(t, chan, timeout, msg)` - Fails if channel doesn't close in time
 - Example of CORRECT pattern:
   ```go
   client.Start(ctx)
-  skipgraphtest.RequireAllReady(t, client)
+  unittest.RequireCallMustReturnWithinTimeout(t, func() {
+      <-client.Ready()
+  }, node.StartupTimeout, "client ready")
 
-  mockCtx.Cancel()
-  skipgraphtest.RequireAllDone(t, client)
+  cancel()
+  unittest.ChannelMustCloseWithinTimeout(t, client.Done(), node.StartupTimeout, "client done")
   ```
 - Example of INCORRECT pattern (DO NOT USE):
   ```go
@@ -139,10 +142,7 @@ func startNode(t *testing.T, opts ...node.LaunchOption) (context.Context, contex
       t.Fatal("not ready")
   }
   ```
-- For multiple components, pass them all to the helper:
-  ```go
-  skipgraphtest.RequireAllReady(t, client1, client2, client3)
-  ```
+- **Note:** When implementing Component lifecycle patterns from `github.com/thep2p/skipgraph-go`, that dependency will be added and `skipgraphtest.RequireAllReady/RequireAllDone` helpers will become available.
 
 **Directory Structure:**
 ```
@@ -262,7 +262,7 @@ The codebase prioritizes directness and simplicity over premature abstraction. F
 
 **6. Use Existing Tools Over Reimplementation**
 - ALWAYS check if a tool/helper already exists before writing your own
-- Leverage test utilities from dependencies (e.g., `skipgraphtest.RequireAllReady`)
+- Leverage test utilities from `internal/unittest/` (e.g., `RequireCallMustReturnWithinTimeout`, `ChannelMustCloseWithinTimeout`)
 - Don't reinvent patterns that are already solved in the codebase or dependencies
 
 ### When to Create Abstractions
